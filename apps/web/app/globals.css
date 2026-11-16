@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #2454d6;
+  --color-success: #0f766e;
+  --color-bg-base: #f5f7fb;
+  --color-text-main: #17243b;
+}
+
+body {
+  color: var(--color-text-main);
+  background-color: var(--color-bg-base);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out forwards;
+}

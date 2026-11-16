@@ -76,3 +76,120 @@ export interface MandyaLocality {
   isCity: boolean;
   taluk: string;
 }
+
+export interface JobFilterParams {
+  q?: string;
+  category?: string;
+  taluk?: string;
+  employmentType?: EmploymentType;
+  workMode?: WorkMode;
+  isWalkIn?: boolean;
+  salaryMin?: number;
+  minExpYears?: number;
+  page?: number;
+  limit?: number;
+  sort?: 'relevance' | 'newest' | 'salary_high';
+}
+
+export interface CandidateProfileDTO {
+  id: string;
+  userId: string;
+  fullName: string;
+  phoneNumber: string;
+  email?: string;
+  headline?: string;
+  bio?: string;
+  currentTaluk?: string;
+  expectedSalary?: number;
+  salaryPeriod?: SalaryPeriod;
+  isFresher: boolean;
+  totalExpMonths: number;
+  skills: string[];
+  education: Array<{
+    id?: string;
+    degree: string;
+    institution: string;
+    passingYear?: number;
+    grade?: string;
+  }>;
+  experience: Array<{
+    id?: string;
+    companyName: string;
+    roleTitle: string;
+    startDate: string;
+    endDate?: string;
+    isCurrent: boolean;
+    description?: string;
+  }>;
+  isPublicToRecruiters: boolean;
+}
+
+export interface JobDTO {
+  id: string;
+  orgId: string;
+  orgName: string;
+  orgBusinessType: string;
+  orgVerified: boolean;
+  categoryId: string;
+  categoryName: string;
+  title: string;
+  employmentType: EmploymentType;
+  workMode: WorkMode;
+  taluk: string;
+  addressDisplay: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryPeriod: SalaryPeriod;
+  isNegotiable: boolean;
+  minExpYears: number;
+  minEducation?: string;
+  openings: number;
+  description: string;
+  benefits: string[];
+  requiredSkills: string[];
+  preferredSkills: string[];
+  isWalkIn: boolean;
+  walkInDates?: string;
+  walkInTimings?: string;
+  walkInVenue?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  status: JobStatus;
+  createdAt: string;
+  expiresAt?: string;
+  match?: MatchResult;
+  fraudAlerts?: string[];
+}
+
+export interface ApplicationDTO {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  orgName: string;
+  candidateId: string;
+  candidateName: string;
+  candidatePhone: string;
+  candidateTaluk?: string;
+  resumeUrl?: string;
+  coverNote?: string;
+  matchScore?: number;
+  status: ApplicationStatus;
+  createdAt: string;
+  statusHistory: Array<{
+    status: ApplicationStatus;
+    note?: string;
+    changedAt: string;
+  }>;
+  interview?: {
+    scheduledDate: string;
+    venueOrLink: string;
+    instructions?: string;
+  };
+}
+
+export interface ModerationActionDTO {
+  jobId: string;
+  action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES';
+  reasonCode?: string;
+  notes?: string;
+}
