@@ -3,9 +3,22 @@
 import React, { useState } from 'react';
 import { Navbar } from '../components/Navbar';
 import { JobCard } from '../components/JobCard';
+import { MobileBottomNav } from '../components/MobileBottomNav';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { JobDTO, EmploymentType, WorkMode, SalaryPeriod } from '@mandya-jobs/types';
-import { Search, UploadCloud, UserCheck, CheckCircle2, X } from 'lucide-react';
+import {
+  Search,
+  UploadCloud,
+  UserCheck,
+  CheckCircle2,
+  X,
+  SlidersHorizontal,
+  Bookmark,
+  Calendar,
+  Building2,
+  MapPin,
+} from 'lucide-react';
+import Link from 'next/link';
 
 const INITIAL_JOBS: JobDTO[] = [
   {
@@ -116,8 +129,12 @@ export default function HomePage() {
   const [lang, setLang] = useState<'en' | 'kn'>('en');
   const [searchTerm, setSearchTerm] = useState('');
   const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
+  const [savedJobs, setSavedJobs] = useState<Record<string, boolean>>({});
   const [activeModalJob, setActiveModalJob] = useState<JobDTO | null>(null);
   const [applySuccessMessage, setApplySuccessMessage] = useState('');
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [selectedTaluk, setSelectedTaluk] = useState<string>('ALL');
+  const [walkInOnly, setWalkInOnly] = useState<boolean>(false);
 
   const toggleLanguage = () => {
     setLang((prev) => (prev === 'en' ? 'kn' : 'en'));
@@ -140,7 +157,13 @@ export default function HomePage() {
     }
   };
 
+  const toggleSavedJob = (jobId: string) => {
+    setSavedJobs((prev) => ({ ...prev, [jobId]: !prev[jobId] }));
+  };
+
   const filteredJobs = INITIAL_JOBS.filter((j) => {
+    if (walkInOnly && !j.isWalkIn) return false;
+    if (selectedTaluk !== 'ALL' && !j.taluk.includes(selectedTaluk)) return false;
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -152,11 +175,11 @@ export default function HomePage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F5F7FB] text-[#17243B]">
+    <div className="min-h-screen bg-[#F5F7FB] text-[#17243B] pb-24">
       <OfflineBanner lang={lang} />
       <Navbar currentLang={lang} onToggleLang={toggleLanguage} />
 
-      <main className="max-w-md mx-auto px-4 py-4 pb-20">
+      <main className="max-w-md mx-auto px-4 py-4">
         <p className="text-xs font-semibold text-slate-500 mb-2">1 Find jobs (job seeker)</p>
 
         {/* Brand Banner */}
@@ -171,12 +194,12 @@ export default function HomePage() {
                 : 'Jobs near you, matched to your skills'}
             </p>
           </div>
-          <a
+          <Link
             href="/employer/post"
             className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-white bg-slate-50 transition"
           >
             {lang === 'kn' ? 'ಉದ್ಯೋಗ ಪ್ರಕಟಿಸಿ' : 'Post a job'}
-          </a>
+          </Link>
         </div>
 
         {/* Profile Card */}
@@ -190,18 +213,24 @@ export default function HomePage() {
               : 'Skills: billing, tally, customer service'}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <button className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-blue-200 bg-blue-50/50 text-blue-700 font-semibold text-xs hover:bg-blue-100/50 transition">
+            <Link
+              href="/candidate/profile"
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-blue-200 bg-blue-50/50 text-blue-700 font-semibold text-xs hover:bg-blue-100/50 transition"
+            >
               <UploadCloud className="w-3.5 h-3.5" />
               <span>{lang === 'kn' ? 'ರೆಸ್ಯೂಮೆ ಅಪ್‌ಲೋಡ್' : 'Upload resume'}</span>
-            </button>
-            <button className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition">
+            </Link>
+            <Link
+              href="/candidate/profile"
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition"
+            >
               <UserCheck className="w-3.5 h-3.5" />
               <span>{lang === 'kn' ? 'ಪ್ರೊಫೈಲ್ ತಿದ್ದಿ' : 'Edit profile'}</span>
-            </button>
+            </Link>
           </div>
         </div>
 
-        {/* Search Bar & Type Dropdown */}
+        {/* Search Bar & Filter Button */}
         <div className="flex gap-2 mb-4">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
@@ -213,10 +242,32 @@ export default function HomePage() {
               className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent shadow-sm"
             />
           </div>
-          <button className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-sm shrink-0">
-            {lang === 'kn' ? 'ಎಲ್ಲಾ ಪ್ರಕಾರಗಳು' : 'All types'}
+          <button
+            onClick={() => setShowFilterDrawer(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-sm shrink-0"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+            <span>{walkInOnly || selectedTaluk !== 'ALL' ? 'Filters (Active)' : 'All types'}</span>
           </button>
         </div>
+
+        {/* Active Filter Chips */}
+        {(walkInOnly || selectedTaluk !== 'ALL') && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
+            {walkInOnly && (
+              <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1 text-[11px]">
+                Walk-ins Only
+                <button onClick={() => setWalkInOnly(false)} className="hover:text-amber-950 font-bold ml-1">×</button>
+              </span>
+            )}
+            {selectedTaluk !== 'ALL' && (
+              <span className="bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1 text-[11px]">
+                {selectedTaluk}
+                <button onClick={() => setSelectedTaluk('ALL')} className="hover:text-blue-950 font-bold ml-1">×</button>
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Success Alert */}
         {applySuccessMessage && (
@@ -232,17 +283,97 @@ export default function HomePage() {
             {lang === 'kn' ? 'ನಿಮಗಾಗಿ ಉತ್ತಮ ಹೊಂದಾಣಿಕೆಗಳು' : 'Best matches for you'}
           </h2>
 
-          {filteredJobs.map((job) => (
-            <JobCard
-              key={job.id}
-              job={job}
-              currentLang={lang}
-              onApply={handleApplyClick}
-              isApplied={appliedJobs[job.id]}
-            />
-          ))}
+          {filteredJobs.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-xs text-slate-500">
+              No matching vacancies found. Try adjusting your search filters.
+            </div>
+          ) : (
+            filteredJobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                currentLang={lang}
+                onApply={handleApplyClick}
+                isApplied={appliedJobs[job.id]}
+              />
+            ))
+          )}
         </div>
       </main>
+
+      {/* Filter Bottom Drawer for Mobile */}
+      {showFilterDrawer && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end justify-center">
+          <div className="bg-white rounded-t-3xl max-w-md w-full p-5 shadow-2xl animate-fade-in max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+              <h3 className="font-bold text-sm text-slate-900">Filter Vacancies</h3>
+              <button onClick={() => setShowFilterDrawer(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-2">Area / Locality</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {['ALL', 'Anna Nagar', 'T. Nagar', 'Velachery', 'Mandya Town', 'Maddur'].map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setSelectedTaluk(t)}
+                      className={`py-2 px-3 rounded-xl border text-left font-medium transition ${
+                        selectedTaluk === t
+                          ? 'border-blue-600 bg-blue-50 text-blue-700 font-bold'
+                          : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {t === 'ALL' ? 'All Areas' : t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-2">Interview Type</label>
+                <button
+                  onClick={() => setWalkInOnly(!walkInOnly)}
+                  className={`w-full py-2.5 px-3 rounded-xl border text-left font-medium transition flex items-center justify-between ${
+                    walkInOnly
+                      ? 'border-amber-600 bg-amber-50 text-amber-900 font-bold'
+                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-amber-600" />
+                    Walk-in Interviews Only
+                  </span>
+                  <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${walkInOnly ? 'bg-amber-600 border-amber-600 text-white' : 'border-slate-300'}`}>
+                    {walkInOnly && '✓'}
+                  </span>
+                </button>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedTaluk('ALL');
+                    setWalkInOnly(false);
+                    setShowFilterDrawer(false);
+                  }}
+                  className="flex-1 py-2.5 px-3 border border-slate-200 rounded-xl text-slate-700 font-semibold"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => setShowFilterDrawer(false)}
+                  className="flex-1 py-2.5 px-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Application Confirmation Modal */}
       {activeModalJob && (
@@ -294,6 +425,9 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav currentLang={lang} applicationCount={Object.keys(appliedJobs).length} />
     </div>
   );
 }
