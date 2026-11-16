@@ -43,6 +43,13 @@ export function Navbar({ currentLang, onToggleLang }: NavbarProps) {
             Admin
           </Link>
 
+          <Link
+            href="/login"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 px-2 py-1 rounded"
+          >
+            {currentLang === 'kn' ? 'ಲಾಗಿನ್' : 'Sign In'}
+          </Link>
+
           <button
             onClick={onToggleLang}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
