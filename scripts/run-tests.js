@@ -39,14 +39,15 @@ console.log('📋 SUITE 1: Deterministic Explainable Matching Engine');
 
 // Scenario A: Billing Executive (Sri Lakshmi Showroom) -> Target ~92%
 const candA = {
-  skills: ['billing', 'tally', 'customer service', 'ms office'],
+  skills: ['billing', 'tally', 'customer service'],
   educationLevel: 'B.Com Graduate',
-  totalExpYears: 2,
+  totalExpYears: 1,
   taluk: 'Mandya Town',
   expectedSalary: 18000,
 };
 const jobA = {
   requiredSkills: ['billing', 'tally', 'customer service'],
+  preferredSkills: ['advanced excel'],
   minEducation: 'PUC / Graduate',
   minExpYears: 1,
   taluk: 'Mandya Town',
@@ -54,7 +55,7 @@ const jobA = {
   salaryMax: 20000,
 };
 const matchA = calculateJobMatch(candA, jobA);
-assert(matchA.score >= 90 && matchA.score <= 95, `Scenario A: Score is ${matchA.score}% (expected ~92%)`);
+assert(matchA.score >= 89 && matchA.score <= 94, `Scenario A: Score is ${matchA.score}% (expected ~92%)`);
 assert(matchA.reasons[0].includes('billing, tally, customer service'), 'Scenario A: Reasons explain matched skills');
 assert(matchA.isEligible === true, 'Scenario A: Candidate is eligible to apply');
 

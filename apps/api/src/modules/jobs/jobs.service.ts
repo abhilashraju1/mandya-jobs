@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { JobDTO, JobStatus, EmploymentType, WorkMode, SalaryPeriod, JobFilterParams } from '@mandya-jobs/types';
-import { calculateJobMatch } from '@mandya-jobs/validation';
-import { detectJobFraud } from '@mandya-jobs/validation';
+import { calculateJobMatch, detectJobFraud } from '../../../../../packages/validation/src';
 
 @Injectable()
 export class JobsService {
