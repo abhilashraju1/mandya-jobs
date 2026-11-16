@@ -1,0 +1,31 @@
+{
+  "name": "mandya-jobs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mandya Jobs - Production-oriented Kannada/English PWA connecting local job seekers with verified employers",
+  "author": "appuabhiraj@gmail.com",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "db:up": "docker compose up -d postgres redis minio",
+    "db:down": "docker compose down",
+    "db:migrate": "turbo run db:migrate --filter=@mandya-jobs/api",
+    "db:seed": "turbo run db:seed --filter=@mandya-jobs/api"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "turbo": "^2.2.3",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

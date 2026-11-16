@@ -1,0 +1,39 @@
+{
+  "app_name": "Mandya Jobs",
+  "tagline": "Local opportunities. Verified employers. Relevant careers.",
+  "common": {
+    "apply": "Apply",
+    "applied": "Applied",
+    "save": "Save",
+    "saved": "Saved",
+    "post_job": "Post a job",
+    "search": "Search",
+    "search_placeholder": "Search title, shop, area, skills...",
+    "match": "match",
+    "walk_in": "Walk-in Interview",
+    "verified_employer": "Verified Employer",
+    "offline_notice": "You are currently offline. Actions will sync when connection returns.",
+    "switch_language": "ಕನ್ನಡ",
+    "view_details": "View Details"
+  },
+  "nav": {
+    "home": "Home",
+    "search": "Search",
+    "saved": "Saved",
+    "applications": "Applications",
+    "profile": "Profile",
+    "dashboard": "Dashboard",
+    "jobs": "Jobs",
+    "applicants": "Applicants",
+    "approvals": "Approvals"
+  },
+  "roles": {
+    "candidate": "Job Seeker",
+    "employer": "Employer / Recruiter",
+    "moderator": "Moderator"
+  },
+  "fraud_warning": {
+    "banner_title": "Safety Alert",
+    "fee_warning": "Warning: Genuine employers never ask for registration fees or deposits. Report any request for money."
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "Mandya Jobs | ಮಂಡ್ಯ ಜಾಬ್ಸ್",
+  "short_name": "MandyaJobs",
+  "description": "Local opportunities. Verified employers. Relevant careers in Mandya.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F7FB",
+  "theme_color": "#2454D6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

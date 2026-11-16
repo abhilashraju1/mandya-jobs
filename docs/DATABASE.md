@@ -1,0 +1,446 @@
+# Mandya Jobs — Relational Data Model & Prisma Schema
+
+**Version:** 1.0  
+**RDBMS:** PostgreSQL 16+  
+**ORM:** Prisma  
+
+---
+
+## 1. Core Entity Groups
+
+1. **Authentication & Identity:** `User`, `Session`, `Role`, `UserRole`, `OtpVerification`
+2. **Candidate Profiles:** `CandidateProfile`, `CandidateEducation`, `CandidateExperience`, `CandidateSkill`, `Resume`
+3. **Employer & Organization:** `Organization`, `OrganizationMember`, `OrganizationVerification`
+4. **Taxonomy & Locations:** `JobCategory`, `Skill`, `LocationTaluk`, `SkillSynonym`
+5. **Jobs & Moderation:** `Job`, `JobVersion`, `JobSkill`, `JobModerationHistory`
+6. **Applications & Recruitment:** `Application`, `ApplicationStatusHistory`, `Interview`, `SavedJob`
+7. **Trust, Safety & Audit:** `Complaint`, `AuditLog`, `CmsPage`, `SystemSetting`
+
+---
+
+## 2. Complete Prisma Schema (`apps/api/prisma/schema.prisma`)
+
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RoleType {
+  GUEST
+  CANDIDATE
+  EMPLOYER_OWNER
+  EMPLOYER_RECRUITER
+  MODERATOR
+  SUPER_ADMIN
+}
+
+enum OrgVerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum JobStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  PUBLISHED
+  REJECTED
+  CLOSED
+  EXPIRED
+  ARCHIVED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  WALK_IN
+  INTERNSHIP
+  CONTRACT
+}
+
+enum WorkMode {
+  ON_SITE
+  HYBRID
+  REMOTE
+}
+
+enum SalaryPeriod {
+  MONTHLY
+  DAILY
+  HOURLY
+  YEARLY
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  VIEWED
+  UNDER_REVIEW
+  SHORTLISTED
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  OFFERED
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+model User {
+  id              String           @id @default(uuid())
+  phoneNumber     String           @unique
+  email           String?          @unique
+  fullName        String?
+  preferredLang   String           @default("kn") // "kn" or "en"
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  roles           UserRole[]
+  sessions        Session[]
+  candidateProfile CandidateProfile?
+  orgMemberships  OrganizationMember[]
+  auditLogs       AuditLog[]
+  complaintsFiled Complaint[]      @relation("FiledComplaints")
+
+  @@index([phoneNumber])
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  role      RoleType
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  tokenHash    String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OtpVerification {
+  id          String   @id @default(uuid())
+  phoneNumber String
+  otpHash     String
+  attempts    Int      @default(0)
+  expiresAt   DateTime
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([phoneNumber])
+}
+
+model CandidateProfile {
+  id             String               @id @default(uuid())
+  userId         String               @unique
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  headline       String?
+  bio            String?
+  currentTaluk   String?
+  expectedSalary Int?
+  salaryPeriod   SalaryPeriod         @default(MONTHLY)
+  isFresher      Boolean              @default(false)
+  totalExpMonths Int                  @default(0)
+  isPublicToRecruiters Boolean       @default(false)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  education      CandidateEducation[]
+  experience     CandidateExperience[]
+  skills         CandidateSkill[]
+  resumes        Resume[]
+  applications   Application[]
+  savedJobs      SavedJob[]
+}
+
+model CandidateEducation {
+  id             String           @id @default(uuid())
+  profileId      String
+  profile        CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  degree         String
+  institution    String
+  passingYear    Int?
+  grade          String?
+}
+
+model CandidateExperience {
+  id             String           @id @default(uuid())
+  profileId      String
+  profile        CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyName    String
+  roleTitle      String
+  startDate      DateTime
+  endDate        DateTime?
+  isCurrent      Boolean          @default(false)
+  description    String?
+}
+
+model Skill {
+  id          String           @id @default(uuid())
+  nameEn      String           @unique
+  nameKn      String
+  category    String?
+  candidates  CandidateSkill[]
+  jobSkills   JobSkill[]
+  synonyms    SkillSynonym[]
+}
+
+model SkillSynonym {
+  id          String   @id @default(uuid())
+  skillId     String
+  alias       String   @unique
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+}
+
+model CandidateSkill {
+  id          String           @id @default(uuid())
+  profileId   String
+  skillId     String
+  yearsExp    Float?
+  profile     CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skill       Skill            @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, skillId])
+}
+
+model Resume {
+  id          String           @id @default(uuid())
+  profileId   String
+  profile     CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String
+  isDefault   Boolean          @default(false)
+  extractedData Json?
+  createdAt   DateTime         @default(now())
+
+  applications Application[]
+}
+
+model Organization {
+  id                 String                @id @default(uuid())
+  legalName          String
+  displayName        String
+  businessType       String                // Showroom, Hospital, Hotel, School, etc.
+  logoUrl            String?
+  primaryPhone       String
+  primaryEmail       String
+  taluk              String
+  fullAddress        String
+  verificationStatus OrgVerificationStatus @default(PENDING)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  members            OrganizationMember[]
+  verifications      OrganizationVerification[]
+  jobs               Job[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  orgId          String
+  userId         String
+  role           RoleType     // EMPLOYER_OWNER or EMPLOYER_RECRUITER
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+}
+
+model OrganizationVerification {
+  id             String                @id @default(uuid())
+  orgId          String
+  org            Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  docType        String                // GST, Trade License, Shop Registration
+  docUrl         String
+  status         OrgVerificationStatus @default(PENDING)
+  reviewNotes    String?
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  createdAt      DateTime              @default(now())
+}
+
+model JobCategory {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  titleEn     String
+  titleKn     String
+  icon        String?
+  jobs        Job[]
+}
+
+model Job {
+  id             String           @id @default(uuid())
+  orgId          String
+  categoryId     String
+  title          String
+  employmentType EmploymentType   @default(FULL_TIME)
+  workMode       WorkMode         @default(ON_SITE)
+  taluk          String           // Mandya, Maddur, Malavalli, etc.
+  addressDisplay String
+  salaryMin      Int?
+  salaryMax      Int?
+  salaryPeriod   SalaryPeriod     @default(MONTHLY)
+  isNegotiable   Boolean          @default(false)
+  minExpYears    Int              @default(0)
+  minEducation   String?
+  openings       Int              @default(1)
+  description    String
+  benefits       String[]
+  isWalkIn       Boolean          @default(false)
+  walkInDates    String?
+  walkInTimings  String?
+  walkInVenue    String?
+  contactPhone   String?
+  contactEmail   String?
+  status         JobStatus        @default(DRAFT)
+  expiresAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category       JobCategory      @relation(fields: [categoryId], references: [id])
+  skills         JobSkill[]
+  applications   Application[]
+  savedBy        SavedJob[]
+  moderations    JobModerationHistory[]
+
+  @@index([status, taluk])
+  @@index([categoryId])
+}
+
+model JobSkill {
+  id         String   @id @default(uuid())
+  jobId      String
+  skillId    String
+  isRequired Boolean  @default(true)
+  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, skillId])
+}
+
+model JobModerationHistory {
+  id          String    @id @default(uuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fromStatus  JobStatus
+  toStatus    JobStatus
+  reasonCode  String?
+  moderatorId String
+  notes       String?
+  createdAt   DateTime  @default(now())
+}
+
+model Application {
+  id             String            @id @default(uuid())
+  jobId          String
+  candidateId    String
+  resumeId       String?
+  coverNote      String?
+  matchScore     Int?
+  status         ApplicationStatus @default(SUBMITTED)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  job            Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate      CandidateProfile  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  resume         Resume?           @relation(fields: [resumeId], references: [id])
+  history        ApplicationStatusHistory[]
+  interviews     Interview[]
+
+  @@unique([jobId, candidateId])
+  @@index([status])
+}
+
+model ApplicationStatusHistory {
+  id            String            @id @default(uuid())
+  applicationId String
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStatus    ApplicationStatus
+  toStatus      ApplicationStatus
+  note          String?
+  changedBy     String
+  createdAt     DateTime          @default(now())
+}
+
+model Interview {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scheduledDate DateTime
+  venueOrLink   String
+  instructions  String?
+  createdAt     DateTime    @default(now())
+}
+
+model SavedJob {
+  id          String           @id @default(uuid())
+  candidateId String
+  jobId       String
+  createdAt   DateTime         @default(now())
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job         Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId])
+}
+
+model Complaint {
+  id          String   @id @default(uuid())
+  reportedBy  String
+  targetType  String   // JOB or ORGANIZATION
+  targetId    String
+  reason      String
+  details     String?
+  isResolved  Boolean  @default(false)
+  resolvedAt  DateTime?
+  reporter    User     @relation("FiledComplaints", fields: [reportedBy], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String   // e.g. "JOB_APPROVED", "RESUME_DOWNLOADED"
+  entityType String
+  entityId   String
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+}
+
+model CmsPage {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  titleEn   String
+  titleKn   String
+  contentEn String
+  contentKn String
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+```
