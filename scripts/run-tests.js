@@ -222,7 +222,7 @@ const scamJob = jobsService.createDraft({
   description: 'Pay registration fee of 500 INR',
 });
 const scamSubmitted = jobsService.submitForReview(scamJob.id);
-assert(scamSubmitted.fraudAlerts.length > 0, 'Scam job automatically receives fraud flags');
+assert(Boolean(scamSubmitted.fraudAlerts && scamSubmitted.fraudAlerts.length > 0), 'Scam job automatically receives fraud flags');
 
 const scamRejected = jobsService.moderateJob(scamSubmitted.id, 'REJECT');
 assert(scamRejected.status === 'REJECTED', 'Moderator rejects scam job');

@@ -5,6 +5,7 @@ import { calculateJobMatch, detectJobFraud } from '../../../../../packages/valid
 @Injectable()
 export class JobsService {
   private jobs: JobDTO[] = [];
+  private nextId = 100;
 
   constructor() {
     this.seedInitialJobs();
@@ -75,7 +76,7 @@ export class JobsService {
   }
 
   createDraft(data: Partial<JobDTO>): JobDTO {
-    const id = `job_${Date.now()}`;
+    const id = `job_${Date.now()}_${++this.nextId}`;
     const newJob: JobDTO = {
       id,
       orgId: data.orgId || 'org_demo',
