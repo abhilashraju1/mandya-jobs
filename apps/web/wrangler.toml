@@ -1,0 +1,19 @@
+name = "mandya-jobs"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+# Cloudflare R2 Storage binding for resumes & logos
+[[r2_buckets]]
+binding = "MANDYA_STORAGE"
+bucket_name = "mandya-jobs-resumes"
+preview_bucket_name = "mandya-jobs-resumes-preview"
+
+# Environment Variables
+[vars]
+NEXT_PUBLIC_APP_URL = "https://mandya-jobs.pages.dev"
+NEXT_PUBLIC_BRAND_NAME = "Mandya Jobs"
+NEXT_PUBLIC_BRAND_LOCAL_NAME = "ಮಂಡ್ಯ ಜಾಬ್ಸ್"
+NEXT_PUBLIC_DEFAULT_CITY = "Mandya"
+NEXT_PUBLIC_DEFAULT_STATE = "Karnataka"
+NODE_VERSION = "22"

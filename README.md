@@ -3,7 +3,15 @@
 > **Local opportunities. Verified employers. Relevant careers.**  
 > A production-oriented bilingual (Kannada / English) Progressive Web Application (PWA) connecting local job seekers with verified employers in Mandya city and district.
 
+📖 **Comprehensive Documentation:** See [**`CLOUDFLARE_SETUP_AND_PROJECT_GUIDE.md`**](./CLOUDFLARE_SETUP_AND_PROJECT_GUIDE.md) for complete architecture, tech stacks, local execution, Cloudflare setup, and accessing via mobile devices with Cloudflare Tunnel.
+
 ---
+
+## ⚡ Quick Links & Commands
+- **Run dev server:** `pnpm dev` ([http://localhost:3000](http://localhost:3000))
+- **Run tests:** `pnpm run test:all` (64/64 automated tests)
+- **Share to outside mobile devices (Cloudflare Tunnel):** `pnpm run tunnel`
+- **Manual Verification Guide:** [docs/MANUAL_VERIFICATION_GUIDE.md](./docs/MANUAL_VERIFICATION_GUIDE.md)
 
 ## 📌 Architecture Highlights
 
