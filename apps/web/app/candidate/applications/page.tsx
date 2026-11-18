@@ -7,12 +7,9 @@ import { OfflineBanner } from '../../../components/OfflineBanner';
 import { ApplicationDTO, ApplicationStatus } from '@mandya-jobs/types';
 import {
   Calendar,
-  CheckCircle2,
-  Clock,
   MapPin,
   Building2,
   AlertCircle,
-  XCircle,
   ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';

@@ -5,21 +5,15 @@ import { Navbar } from '../components/Navbar';
 import { JobCard } from '../components/JobCard';
 import { MobileBottomNav } from '../components/MobileBottomNav';
 import { OfflineBanner } from '../components/OfflineBanner';
-import { JobDTO, EmploymentType, WorkMode, SalaryPeriod, ApplicationStatus } from '@mandya-jobs/types';
+import { JobDTO, ApplicationStatus } from '@mandya-jobs/types';
 import { MANDYA_SEED_JOBS, calculateJobMatch } from '@mandya-jobs/validation';
 import {
   Search,
-  UploadCloud,
-  UserCheck,
   CheckCircle2,
   X,
   SlidersHorizontal,
-  Bookmark,
   Calendar,
-  Building2,
-  MapPin,
 } from 'lucide-react';
-import Link from 'next/link';
 
 // Default candidate profile used for dynamic match computation
 const DEFAULT_CANDIDATE = {

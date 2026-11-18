@@ -5,7 +5,7 @@ import { Navbar } from '../../../components/Navbar';
 import { MobileBottomNav } from '../../../components/MobileBottomNav';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { JobCard } from '../../../components/JobCard';
-import { JobDTO, EmploymentType, WorkMode, SalaryPeriod } from '@mandya-jobs/types';
+import { JobDTO } from '@mandya-jobs/types';
 import { MANDYA_SEED_JOBS } from '@mandya-jobs/validation';
 import { Bookmark, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
