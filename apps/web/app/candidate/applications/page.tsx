@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '../../../components/Navbar';
 import { MobileBottomNav } from '../../../components/MobileBottomNav';
 import { OfflineBanner } from '../../../components/OfflineBanner';
@@ -90,9 +90,23 @@ export default function CandidateApplicationsPage() {
   const [applications, setApplications] = useState<ApplicationDTO[]>(INITIAL_APPLICATIONS);
   const [withdrawnNotice, setWithdrawnNotice] = useState('');
 
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('mandya_applications');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setApplications(parsed);
+        }
+      }
+    } catch {
+      // fallback cleanly
+    }
+  }, []);
+
   const handleWithdraw = (id: string, jobTitle: string) => {
-    setApplications((prev) =>
-      prev.map((app) =>
+    setApplications((prev) => {
+      const updated = prev.map((app) =>
         app.id === id
           ? {
               ...app,
@@ -107,8 +121,14 @@ export default function CandidateApplicationsPage() {
               ],
             }
           : app
-      )
-    );
+      );
+      try {
+        localStorage.setItem('mandya_applications', JSON.stringify(updated));
+      } catch {
+        // fallback
+      }
+      return updated;
+    });
     setWithdrawnNotice(
       lang === 'kn'
         ? `ನೀವು "${jobTitle}" ಹುದ್ದೆಗೆ ಸಲ್ಲಿಸಿದ ಅರ್ಜಿಯನ್ನು ಹಿಂಪಡೆದಿದ್ದೀರಿ.`

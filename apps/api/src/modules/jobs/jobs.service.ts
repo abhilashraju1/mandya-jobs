@@ -12,7 +12,13 @@ export class JobsService {
   }
 
   getAllPublished(filters?: JobFilterParams, candidateProfile?: any): JobDTO[] {
-    let result = this.jobs.filter((j) => j.status === JobStatus.PUBLISHED);
+    const now = new Date();
+    let result = this.jobs.filter(
+      (j) =>
+        j.status === JobStatus.PUBLISHED &&
+        j.orgVerified === true &&
+        (!j.expiresAt || new Date(j.expiresAt) > now)
+    );
 
     if (filters?.q) {
       const q = filters.q.toLowerCase();
@@ -137,9 +143,23 @@ export class JobsService {
     return this.jobs.filter((j) => j.status === JobStatus.SUBMITTED || j.status === JobStatus.UNDER_REVIEW);
   }
 
-  moderateJob(id: string, action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES', reason?: string): JobDTO {
+  moderateJob(
+    id: string,
+    action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES',
+    reason?: string,
+    reviewerId: string = 'mod_admin'
+  ): JobDTO {
     const job = this.getById(id);
+    job.moderationHistory = job.moderationHistory || [];
+    job.moderationHistory.push({
+      reviewerId,
+      action,
+      reason: reason || (action === 'APPROVE' ? 'Approved by moderator' : 'No reason provided'),
+      timestamp: new Date().toISOString(),
+    });
+
     if (action === 'APPROVE') {
+      job.orgVerified = true;
       job.status = JobStatus.PUBLISHED;
     } else if (action === 'REJECT') {
       job.status = JobStatus.REJECTED;

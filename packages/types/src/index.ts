@@ -159,6 +159,13 @@ export interface JobDTO {
   expiresAt?: string;
   match?: MatchResult;
   fraudAlerts?: string[];
+  moderationHistory?: Array<{
+    reviewerId?: string;
+    action: string;
+    reason?: string;
+    timestamp: string;
+  }>;
+  version?: number;
 }
 
 export interface ApplicationDTO {

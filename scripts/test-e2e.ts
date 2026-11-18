@@ -163,8 +163,14 @@ const interviewApp = appService.scheduleInterview(application.id, {
 assertE2E(interviewApp.status === 'INTERVIEW_SCHEDULED', 'Interview scheduled with time and venue');
 assertE2E(interviewApp.interview.venueOrLink.includes('Mandya'), 'Interview venue recorded accurately');
 
-// Step 5: Recruiter offers and hires candidate
-const hiredApp = appService.updateStatus(application.id, 'HIRED', 'Offer accepted. Joining Dec 1st.');
+// Step 5: Recruiter conducts interview, offers, and hires candidate
+const interviewedApp = appService.updateStatus(application.id, 'INTERVIEWED' as any, 'Candidate completed in-person interview');
+assertE2E(interviewedApp.status === 'INTERVIEWED', 'Candidate marked as interviewed');
+
+const offeredApp = appService.updateStatus(application.id, 'OFFERED' as any, 'Formal offer extended: 18,000 INR/month');
+assertE2E(offeredApp.status === 'OFFERED', 'Offer extended to candidate');
+
+const hiredApp = appService.updateStatus(application.id, 'HIRED' as any, 'Offer accepted. Joining Dec 1st.');
 assertE2E(hiredApp.status === 'HIRED', 'Candidate hired and recorded in pipeline');
 
 // -----------------------------------------------------------------------------

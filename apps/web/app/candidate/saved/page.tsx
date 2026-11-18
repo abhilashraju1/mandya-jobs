@@ -1,58 +1,61 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '../../../components/Navbar';
 import { MobileBottomNav } from '../../../components/MobileBottomNav';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { JobCard } from '../../../components/JobCard';
 import { JobDTO, EmploymentType, WorkMode, SalaryPeriod } from '@mandya-jobs/types';
+import { MANDYA_SEED_JOBS } from '@mandya-jobs/validation';
 import { Bookmark, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-const INITIAL_SAVED_JOBS: JobDTO[] = [
-  {
-    id: 'job_1',
-    orgId: 'org_1',
-    orgName: 'Sri Lakshmi Showroom',
-    orgBusinessType: 'Showroom',
-    orgVerified: true,
-    categoryId: 'showrooms',
-    categoryName: 'Showrooms',
-    title: 'Billing Executive',
-    employmentType: EmploymentType.FULL_TIME,
-    workMode: WorkMode.ON_SITE,
-    taluk: 'Anna Nagar · Mandya',
-    addressDisplay: 'VV Road, Mandya',
-    salaryMin: 15000,
-    salaryMax: 20000,
-    salaryPeriod: SalaryPeriod.MONTHLY,
-    isNegotiable: true,
-    minExpYears: 1,
-    minEducation: 'PUC / Graduate',
-    openings: 2,
-    description: 'Handle counter billing, POS operations, and Tally updates.',
-    benefits: ['PF', 'ESI'],
-    requiredSkills: ['billing', 'tally', 'customer service'],
-    preferredSkills: ['ms excel'],
-    isWalkIn: true,
-    status: 'PUBLISHED' as any,
-    createdAt: new Date().toISOString(),
-    match: {
-      score: 92,
-      reasons: ['Matches: billing, tally, customer'],
-      missingSkills: [],
-      isEligible: true,
-    },
-  },
-];
-
 export default function CandidateSavedJobsPage() {
   const [lang, setLang] = useState<'en' | 'kn'>('en');
-  const [savedJobs, setSavedJobs] = useState<JobDTO[]>(INITIAL_SAVED_JOBS);
+  const [savedJobs, setSavedJobs] = useState<JobDTO[]>([]);
   const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('mandya_saved_jobs');
+      if (stored) {
+        setSavedJobs(JSON.parse(stored));
+      } else {
+        // Default to first seed job for initial experience
+        setSavedJobs([MANDYA_SEED_JOBS[0]]);
+      }
+
+      const storedApplied = localStorage.getItem('mandya_applied_jobs');
+      if (storedApplied) {
+        setAppliedJobs(JSON.parse(storedApplied));
+      }
+    } catch {
+      setSavedJobs([MANDYA_SEED_JOBS[0]]);
+    }
+  }, []);
+
   const handleApply = (job: JobDTO) => {
-    setAppliedJobs((prev) => ({ ...prev, [job.id]: true }));
+    setAppliedJobs((prev) => {
+      const next = { ...prev, [job.id]: true };
+      try {
+        localStorage.setItem('mandya_applied_jobs', JSON.stringify(next));
+      } catch {
+        // fallback
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSave = (jobId: string) => {
+    setSavedJobs((prev) => {
+      const next = prev.filter((j) => j.id !== jobId);
+      try {
+        localStorage.setItem('mandya_saved_jobs', JSON.stringify(next));
+      } catch {
+        // fallback
+      }
+      return next;
+    });
   };
 
   return (
@@ -73,15 +76,19 @@ export default function CandidateSavedJobsPage() {
         {savedJobs.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
             <Bookmark className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <h2 className="font-bold text-sm text-slate-700">No saved jobs yet</h2>
+            <h2 className="font-bold text-sm text-slate-700">
+              {lang === 'kn' ? 'ಉಳಿಸಿದ ಉದ್ಯೋಗಗಳಿಲ್ಲ' : 'No saved jobs yet'}
+            </h2>
             <p className="text-xs text-slate-400 mt-1 mb-4">
-              Bookmark vacancies while browsing to review and apply later.
+              {lang === 'kn'
+                ? 'ಉದ್ಯೋಗಗಳನ್ನು ಹುಡುಕುವಾಗ ಬುಕ್‌ಮಾರ್ಕ್ ಮಾಡಿ ನಂತರ ಪರಿಶೀಲಿಸಿ.'
+                : 'Bookmark vacancies while browsing to review and apply later.'}
             </p>
             <Link
               href="/"
               className="inline-block py-2 px-4 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700"
             >
-              Browse Jobs
+              {lang === 'kn' ? 'ಉದ್ಯೋಗಗಳನ್ನು ಬ್ರೌಸ್ ಮಾಡಿ' : 'Browse Jobs'}
             </Link>
           </div>
         ) : (
@@ -92,7 +99,9 @@ export default function CandidateSavedJobsPage() {
                 job={job}
                 currentLang={lang}
                 onApply={handleApply}
+                onToggleSave={handleToggleSave}
                 isApplied={appliedJobs[job.id]}
+                isSaved={true}
               />
             ))}
           </div>
