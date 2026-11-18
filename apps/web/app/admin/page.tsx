@@ -1,40 +1,138 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '../../components/Navbar';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { Check, X, AlertTriangle, FileText, CheckCircle2 } from 'lucide-react';
+import { JobDTO, JobStatus } from '@mandya-jobs/types';
+
+const INITIAL_PENDING_QUEUE: any[] = [
+  {
+    id: 'job_pending_1',
+    title: 'Garment Sales Associate',
+    company: 'Mandya Silks & Sarees',
+    locality: 'VV Road · Mandya Town',
+    flagged: false,
+    flagMessage: 'Verified employer • No red flags found',
+    fullJob: {
+      id: 'job_pending_1',
+      orgId: 'org_silks',
+      orgName: 'Mandya Silks & Sarees',
+      orgBusinessType: 'Showroom',
+      orgVerified: true,
+      categoryId: 'showrooms',
+      categoryName: 'Showrooms',
+      title: 'Garment Sales Associate',
+      employmentType: 'FULL_TIME',
+      workMode: 'ON_SITE',
+      taluk: 'Mandya Town',
+      addressDisplay: 'VV Road, Mandya Town',
+      salaryMin: 14000,
+      salaryMax: 18000,
+      salaryPeriod: 'MONTHLY',
+      isNegotiable: true,
+      minExpYears: 1,
+      minEducation: 'PUC',
+      openings: 3,
+      description: 'Assist retail customers, showcase silk sarees, and manage counter inventory.',
+      benefits: ['PF', 'Incentives'],
+      requiredSkills: ['sales', 'customer service', 'kannada'],
+      preferredSkills: ['english'],
+      isWalkIn: true,
+      walkInVenue: 'Mandya Silks showroom counter',
+      contactPhone: '9845999888',
+      status: 'SUBMITTED',
+      createdAt: new Date().toISOString(),
+    },
+  },
+  {
+    id: 'job_scam_test',
+    title: 'Data Entry Work From Home',
+    company: 'QuickEarn Services',
+    locality: 'Online / Other',
+    flagged: true,
+    flagMessage: 'Flagged: "registration fee" (illegal recruitment fee violation)',
+    fullJob: {
+      id: 'job_scam_test',
+      orgId: 'org_unverified',
+      orgName: 'QuickEarn Services',
+      orgBusinessType: 'Other',
+      orgVerified: false,
+      title: 'Data Entry Work From Home',
+      taluk: 'Mandya Town',
+      status: 'SUBMITTED',
+      fraudAlerts: ['Flagged: "registration fee" (recruitment fee violation)'],
+    },
+  },
+];
 
 export default function AdminReviewPage() {
   const [lang, setLang] = useState<'en' | 'kn'>('en');
   const [activeTab, setActiveTab] = useState<'pending' | 'applications' | 'profiles'>('pending');
-
-  const [pendingJobs, setPendingJobs] = useState([
-    {
-      id: 'job_1',
-      title: 'Billing Executive',
-      company: 'Sri Lakshmi Showroom',
-      locality: 'Anna Nagar',
-      flagged: false,
-      flagMessage: 'No red flags found',
-    },
-    {
-      id: 'job_2',
-      title: 'Data Entry Work From Home',
-      company: 'QuickEarn Services',
-      locality: 'Other',
-      flagged: true,
-      flagMessage: 'Flagged: "registration fee", contact looks invalid',
-    },
-  ]);
-
+  const [pendingJobs, setPendingJobs] = useState<any[]>(INITIAL_PENDING_QUEUE);
   const [toastMessage, setToastMessage] = useState('');
 
+  // Load dynamically submitted employer jobs on mount
+  useEffect(() => {
+    try {
+      const storedQueue = localStorage.getItem('mandya_moderation_queue');
+      if (storedQueue) {
+        const parsed = JSON.parse(storedQueue);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const formatted = parsed.map((j: JobDTO) => ({
+            id: j.id,
+            title: j.title,
+            company: j.orgName,
+            locality: j.taluk,
+            flagged: Boolean(j.fraudAlerts && j.fraudAlerts.length > 0),
+            flagMessage:
+              j.fraudAlerts && j.fraudAlerts.length > 0
+                ? j.fraudAlerts[0]
+                : 'Verified employer • No red flags found',
+            fullJob: j,
+          }));
+          setPendingJobs([...formatted, ...INITIAL_PENDING_QUEUE.filter((q) => !parsed.some((p: any) => p.id === q.id))]);
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }, []);
+
   const handleAction = (id: string, action: 'approved' | 'rejected') => {
-    const job = pendingJobs.find((j) => j.id === id);
-    setPendingJobs((prev) => prev.filter((j) => j.id !== id));
-    setToastMessage(`Job "${job?.title}" has been ${action}.`);
-    setTimeout(() => setToastMessage(''), 3000);
+    const jobItem = pendingJobs.find((j) => j.id === id);
+    const updatedQueue = pendingJobs.filter((j) => j.id !== id);
+    setPendingJobs(updatedQueue);
+
+    try {
+      // Update moderation queue in localStorage
+      const remainingFullJobs = updatedQueue.map((q) => q.fullJob).filter(Boolean);
+      localStorage.setItem('mandya_moderation_queue', JSON.stringify(remainingFullJobs));
+
+      if (action === 'approved' && jobItem?.fullJob) {
+        const approvedJob = {
+          ...jobItem.fullJob,
+          status: JobStatus.PUBLISHED,
+          orgVerified: true,
+          approvedAt: new Date().toISOString(),
+        };
+
+        const existingApproved = JSON.parse(localStorage.getItem('mandya_approved_jobs') || '[]');
+        localStorage.setItem(
+          'mandya_approved_jobs',
+          JSON.stringify([approvedJob, ...existingApproved.filter((j: any) => j.id !== id)])
+        );
+      }
+    } catch {
+      // Fallback
+    }
+
+    setToastMessage(
+      lang === 'kn'
+        ? `"${jobItem?.title}" ಹುದ್ದೆಯನ್ನು ${action === 'approved' ? 'ಅನುಮೋದಿಸಲಾಗಿದೆ' : 'ತಿರಸ್ಕರಿಸಲಾಗಿದೆ'}.`
+        : `Job "${jobItem?.title}" has been ${action}.`
+    );
+    setTimeout(() => setToastMessage(''), 3500);
   };
 
   return (
@@ -85,7 +183,7 @@ export default function AdminReviewPage() {
           {/* Toast Notification */}
           {toastMessage && (
             <div className="mb-4 p-2.5 bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold text-teal-800 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-teal-600" />
+              <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
               <span>{toastMessage}</span>
             </div>
           )}
@@ -169,13 +267,13 @@ export default function AdminReviewPage() {
                     Billing Executive • Sri Lakshmi Showroom
                   </p>
                 </div>
-                <span className="font-bold text-xs text-teal-700">92%</span>
+                <span className="font-bold text-xs text-teal-700">90%</span>
               </div>
 
-              <button className="mt-2 text-[11px] font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              <div className="mt-2 text-[11px] font-semibold text-blue-600 flex items-center gap-1">
                 <FileText className="w-3 h-3" />
-                <span>View resume text</span>
-              </button>
+                <span>Priya_Resume_2026.pdf (Verified)</span>
+              </div>
             </div>
           </div>
         </div>

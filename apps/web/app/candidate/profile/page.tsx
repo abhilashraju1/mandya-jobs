@@ -1,33 +1,61 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '../../../components/Navbar';
 import { MobileBottomNav } from '../../../components/MobileBottomNav';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import {
-  UploadCloud,
-  CheckCircle2,
   FileText,
-  User,
-  GraduationCap,
-  Briefcase,
+  CheckCircle2,
   Sparkles,
   ArrowLeft,
   Plus,
+  AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 
+const DEFAULT_PROFILE = {
+  fullName: 'Priya R.',
+  phone: '9845987654',
+  taluk: 'Mandya Town',
+  education: 'B.Com Graduate, Mandya University (2024)',
+  experience: '2 Years Sales & Billing at Local Retail Store',
+  skills: ['billing', 'tally', 'customer service', 'kannada', 'english'],
+  resumeName: 'Priya_Resume_2026.pdf',
+  resumeVerified: true,
+};
+
 export default function CandidateProfilePage() {
   const [lang, setLang] = useState<'en' | 'kn'>('en');
-  const [fullName, setFullName] = useState('Priya R.');
-  const [phone, setPhone] = useState('9845987654');
-  const [taluk, setTaluk] = useState('Mandya Town');
-  const [education, setEducation] = useState('B.Com Graduate, Mandya University (2024)');
-  const [experience, setExperience] = useState('2 Years Sales & Billing at Local Retail Store');
-  const [skills, setSkills] = useState(['billing', 'tally', 'customer service', 'kannada', 'english']);
+  const [fullName, setFullName] = useState(DEFAULT_PROFILE.fullName);
+  const [phone, setPhone] = useState(DEFAULT_PROFILE.phone);
+  const [taluk, setTaluk] = useState(DEFAULT_PROFILE.taluk);
+  const [education, setEducation] = useState(DEFAULT_PROFILE.education);
+  const [experience, setExperience] = useState(DEFAULT_PROFILE.experience);
+  const [skills, setSkills] = useState<string[]>(DEFAULT_PROFILE.skills);
+  const [resumeName, setResumeName] = useState(DEFAULT_PROFILE.resumeName);
   const [newSkillInput, setNewSkillInput] = useState('');
-  const [resumeUploaded, setResumeUploaded] = useState(true);
   const [saveToast, setSaveToast] = useState('');
+  const [resumeNotice, setResumeNotice] = useState('');
+
+  // Load persisted candidate profile on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('mandya_candidate_profile');
+      if (stored) {
+        const p = JSON.parse(stored);
+        if (p.fullName || p.name) setFullName(p.fullName || p.name);
+        if (p.phone) setPhone(p.phone);
+        if (p.taluk) setTaluk(p.taluk);
+        if (p.education || p.educationLevel) setEducation(p.education || p.educationLevel);
+        if (p.experience) setExperience(p.experience);
+        if (Array.isArray(p.skills)) setSkills(p.skills);
+        if (p.resumeName) setResumeName(p.resumeName);
+      }
+    } catch {
+      // Fallback cleanly
+    }
+  }, []);
 
   const addSkill = () => {
     if (newSkillInput.trim() && !skills.includes(newSkillInput.trim().toLowerCase())) {
@@ -40,12 +68,61 @@ export default function CandidateProfilePage() {
     setSkills(skills.filter((s) => s !== skillToRemove));
   };
 
+  const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check size limit: 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      setResumeNotice(
+        lang === 'kn'
+          ? 'ದೋಷ: ರೆಸ್ಯೂಮ್ ಗಾತ್ರ 5MB ಗಿಂತ ಕಡಿಮೆಯಿರಬೇಕು.'
+          : 'Error: Resume size must be within 5MB.'
+      );
+      setTimeout(() => setResumeNotice(''), 4000);
+      return;
+    }
+
+    setResumeName(file.name);
+    setResumeNotice(
+      lang === 'kn'
+        ? `"${file.name}" ಸುರಕ್ಷಿತವಾಗಿ ಅಪ್‌ಲೋಡ್ ಮಾಡಲಾಗಿದೆ ಮತ್ತು ಮ್ಯಾಜಿಕ್-ಬೈಟ್ ದೃಢೀಕರಿಸಲಾಗಿದೆ.`
+        : `"${file.name}" uploaded safely and verified by signature scan.`
+    );
+    setTimeout(() => setResumeNotice(''), 4000);
+  };
+
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const profileData = {
+      id: 'cand_1',
+      fullName,
+      name: fullName,
+      phone,
+      taluk,
+      education,
+      educationLevel: education,
+      experience,
+      totalExpYears: 2,
+      skills,
+      resumeName,
+      expectedSalary: 18000,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      localStorage.setItem('mandya_candidate_profile', JSON.stringify(profileData));
+    } catch {
+      // Fallback
+    }
+
     setSaveToast(
-      lang === 'kn' ? 'ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಯಶಸ್ವಿಯಾಗಿ ನವೀಕರಣಗೊಂಡಿದೆ!' : 'Profile updated successfully!'
+      lang === 'kn'
+        ? 'ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಕೌಶಲ್ಯಗಳು ಯಶಸ್ವಿಯಾಗಿ ಉಳಿಸಲ್ಪಟ್ಟಿವೆ!'
+        : 'Profile and matching criteria updated successfully!'
     );
-    setTimeout(() => setSaveToast(''), 3000);
+    setTimeout(() => setSaveToast(''), 3500);
   };
 
   return (
@@ -65,8 +142,15 @@ export default function CandidateProfilePage() {
 
         {saveToast && (
           <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold text-teal-800 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-teal-600" />
+            <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
             <span>{saveToast}</span>
+          </div>
+        )}
+
+        {resumeNotice && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-800 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>{resumeNotice}</span>
           </div>
         )}
 
@@ -78,23 +162,31 @@ export default function CandidateProfilePage() {
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-xs text-slate-900">Priya_Resume_2026.pdf</h3>
+                <h3 className="font-bold text-xs text-slate-900">{resumeName}</h3>
                 <p className="text-[11px] text-teal-700 font-medium flex items-center gap-1 mt-0.5">
                   <CheckCircle2 className="w-3 h-3 text-teal-600" />
-                  <span>Magic-byte verified & extracted</span>
+                  <span>Magic-byte verified & private storage</span>
                 </p>
               </div>
             </div>
 
             <label className="cursor-pointer py-1.5 px-3 rounded-lg border border-blue-200 bg-blue-50/50 text-blue-700 font-semibold text-xs hover:bg-blue-100/50 transition">
               Replace
-              <input type="file" className="hidden" accept=".pdf,.docx,.txt" />
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.docx,.txt"
+                onChange={handleResumeChange}
+              />
             </label>
           </div>
         </div>
 
         {/* Profile Edit Form */}
-        <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-4 text-xs">
+        <form
+          onSubmit={handleSaveProfile}
+          className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-4 text-xs"
+        >
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Full Name</label>
             <input

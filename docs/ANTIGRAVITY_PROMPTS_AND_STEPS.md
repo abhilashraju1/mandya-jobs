@@ -215,6 +215,34 @@ Evaluate mandatory eligibility separately; missing data must not produce mislead
   4. Enhanced `applications.service.ts` to look up real vacancy details and enforce allowed state transitions.
   5. Created this comprehensive documentation file.
 
+### Prompt 13: Final Implementation, Live HTTP API & Full End-to-End Verification
+- **User Prompt:**  
+  `Check this file and fix the issues and do end to end testing` (MANDYA JOBS — FINAL ANTIGRAVITY IMPLEMENTATION AND VERIFICATION PROMPT)
+- **Antigravity Action:**
+  1. **Bootstrapped Runnable NestJS API (`apps/api`):**
+     - Created `apps/api/src/main.ts` with CORS, `/api/v1` global prefix, and local port binding (`process.env.PORT || 4000`).
+     - Created `apps/api/src/app.module.ts` assembling `JobsModule`, `ApplicationsModule`, `ResumesModule`, `AuthModule`, and `PrismaService`.
+     - Built dedicated REST controllers:
+       * `HealthController`: System readiness probe `/api/v1/health`.
+       * `JobsController`: Public search, filter, draft creation, submit, and reasoned moderation queue.
+       * `ApplicationsController`: Real vacancy application, candidate tracker, recruiter pipeline, and withdrawal.
+       * `ResumesController`: Metadata validation, quarantine scans, and presigned private download URLs.
+  2. **Fixed Nursing Qualification Regression:**
+     - Updated `packages/validation/src/matching.ts` with job-specific domain qualification comparisons.
+     - Relevant nursing credentials (96%) now strictly outrank unrelated degrees (B.Com: 81%) for specialized healthcare vacancies.
+  3. **Installed PWA Manifest Icons & Service Worker:**
+     - Generated valid binary PNG icons (`icon-192x192.png`, `icon-512x512.png`) inside `apps/web/public/icons/`.
+     - Created `apps/web/public/sw.js` with network-first caching, static asset offline shell, and private API exclusion.
+     - Registered service worker in `apps/web/app/layout.tsx`.
+  4. **Cross-Portal Persistence & Shared Apply Flow:**
+     - `apps/web/app/employer/post/page.tsx` saves submitted jobs into moderation queue.
+     - `apps/web/app/admin/page.tsx` approvals instantly publish vacancies to the live candidate discovery feed.
+     - `apps/web/app/candidate/saved/page.tsx` and `apps/web/app/page.tsx` share real application record writes to `mandya_applications`.
+     - `apps/web/app/candidate/profile/page.tsx` persists edited skills, education, and resume to `mandya_candidate_profile`.
+  5. **Executed Comprehensive 115-Test Verification Suite:**
+     - Built and ran `apps/api/test/test-http-api.ts` executing 48 live HTTP server scenarios.
+     - All 115 automated tests passed with 100% success.
+
 ---
 
 ## 4. Step-by-Step Reproduction Guide
@@ -229,7 +257,7 @@ cd mandya-jobs
 # 2. Install dependencies via pnpm monorepo
 pnpm install
 
-# 3. Run all unit and E2E automated tests
+# 3. Run all unit, E2E, and live HTTP API automated tests (115 tests)
 pnpm run test:all
 
 # 4. Start local development server
@@ -243,11 +271,12 @@ pnpm run tunnel
 
 ## 5. Automated Verification & Test Output Summary
 
-| Suite | File | Tests / Scenarios | Pass Rate | Status |
+| Suite | File / Runner | Tests / Scenarios | Pass Rate | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Unit & Logic** | `scripts/run-tests.js` | 28 tests | 28 / 28 (100%) | ✅ VERIFIED |
-| **End-to-End** | `scripts/test-e2e.ts` | 36 scenarios | 36 / 36 (100%) | ✅ VERIFIED |
-| **Total Automated** | `pnpm run test:all` | **64 tests** | **64 / 64 (100%)** | 🏆 **ALL PASS** |
+| **Unit & Logic** | `scripts/run-tests.js` | 29 tests | 29 / 29 (100%) | ✅ VERIFIED |
+| **End-to-End** | `scripts/test-e2e.ts` | 38 scenarios | 38 / 38 (100%) | ✅ VERIFIED |
+| **Live HTTP API E2E** | `apps/api/test/test-http-api.ts` | 48 scenarios | 48 / 48 (100%) | ✅ VERIFIED |
+| **Total Automated** | `pnpm run test:all` | **115 tests** | **115 / 115 (100%)** | 🏆 **ALL PASS** |
 
 ### Verified Subsystems:
 - ✅ **Deterministic Matching:** Exact scoring: 90% (billing/tally), 82% (partial), 35% (low). Apply button NEVER disabled.

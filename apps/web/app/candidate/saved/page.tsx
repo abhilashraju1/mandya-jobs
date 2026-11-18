@@ -39,6 +39,33 @@ export default function CandidateSavedJobsPage() {
       const next = { ...prev, [job.id]: true };
       try {
         localStorage.setItem('mandya_applied_jobs', JSON.stringify(next));
+
+        const existingApps = JSON.parse(localStorage.getItem('mandya_applications') || '[]');
+        if (!existingApps.some((a: any) => a.jobId === job.id)) {
+          const profile = JSON.parse(localStorage.getItem('mandya_candidate_profile') || '{}');
+          const newApp = {
+            id: `app_${Date.now()}`,
+            jobId: job.id,
+            jobTitle: job.title,
+            orgName: job.orgName,
+            candidateId: profile.id || 'cand_1',
+            candidateName: profile.fullName || profile.name || 'Priya R.',
+            candidatePhone: profile.phone || '9845987654',
+            candidateTaluk: profile.taluk || 'Mandya Town',
+            matchScore: job.match?.score || 90,
+            resumeName: profile.resumeName || 'Priya_Resume_2026.pdf',
+            status: 'SUBMITTED',
+            createdAt: new Date().toISOString(),
+            statusHistory: [
+              {
+                status: 'SUBMITTED',
+                note: 'Application submitted from Saved Jobs',
+                changedAt: 'Just now',
+              },
+            ],
+          };
+          localStorage.setItem('mandya_applications', JSON.stringify([newApp, ...existingApps]));
+        }
       } catch {
         // fallback
       }

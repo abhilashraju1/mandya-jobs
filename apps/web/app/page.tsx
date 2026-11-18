@@ -39,10 +39,18 @@ export default function HomePage() {
   const [selectedTaluk, setSelectedTaluk] = useState<string>('ALL');
   const [walkInOnly, setWalkInOnly] = useState<boolean>(false);
   const [candidateProfile, setCandidateProfile] = useState(DEFAULT_CANDIDATE);
+  const [approvedJobs, setApprovedJobs] = useState<JobDTO[]>([]);
 
   // Initialize and synchronize with localStorage on client mount
   useEffect(() => {
     try {
+      const storedApproved = localStorage.getItem('mandya_approved_jobs');
+      if (storedApproved) {
+        const parsed = JSON.parse(storedApproved);
+        if (Array.isArray(parsed)) {
+          setApprovedJobs(parsed);
+        }
+      }
       const storedSaved = localStorage.getItem('mandya_saved_jobs');
       if (storedSaved) {
         const parsed = JSON.parse(storedSaved);
@@ -134,10 +142,15 @@ export default function HomePage() {
     });
   };
 
+  const allAvailableJobs = [
+    ...approvedJobs,
+    ...MANDYA_SEED_JOBS.filter((j) => !approvedJobs.some((a) => a.id === j.id)),
+  ];
+
   // Dynamically compute match scores for all published and verified Mandya vacancies
-  const computedJobs: JobDTO[] = MANDYA_SEED_JOBS.filter(
-    (job) => job.status === 'PUBLISHED' && job.orgVerified
-  ).map((job) => {
+  const computedJobs: JobDTO[] = allAvailableJobs
+    .filter((job) => job.status === 'PUBLISHED' && job.orgVerified)
+    .map((job) => {
     const match = calculateJobMatch(
       {
         skills: candidateProfile.skills,

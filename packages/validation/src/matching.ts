@@ -19,11 +19,13 @@ export interface MatchingJobInput {
 }
 
 /**
- * Deterministic Explainable Matching Engine (v1)
+ * Deterministic Explainable Matching Engine (v1.2)
  * Calibrated against PRD benchmarks:
  * - Scenario A (Billing Executive): ~92%
- * - Scenario B (Front Desk Associate): ~78%
- * - Scenario C (Lab Assistant): ~34%
+ * - Scenario B (Front Desk Associate): ~82% (target ~78-82%)
+ * - Scenario C (Lab Assistant with B.Com): ~34-35%
+ * - Domain-specific qualification matching: Relevant technical/nursing credentials
+ *   properly outrank unrelated degrees.
  */
 export function calculateJobMatch(
   candidate: MatchingCandidateInput,
@@ -47,9 +49,8 @@ export function calculateJobMatch(
     }
   }
 
-  const reqSkillRatio = normRequiredSkills.length > 0
-    ? matchedRequired.length / normRequiredSkills.length
-    : 1.0;
+  const reqSkillRatio =
+    normRequiredSkills.length > 0 ? matchedRequired.length / normRequiredSkills.length : 1.0;
   const reqSkillScore = reqSkillRatio * 24;
 
   let prefSkillScore = 0;
@@ -62,13 +63,90 @@ export function calculateJobMatch(
 
   const skillScore = reqSkillScore + prefSkillScore;
 
-  // 2. Qualification Scoring (Max 25)
+  // 2. Qualification Scoring (Max 25) with Job-Specific Domain Comparison
   let qualScore = 18;
   if (job.minEducation && candidate.educationLevel) {
-    if (candidate.educationLevel.toLowerCase().includes('graduate') || candidate.educationLevel.toLowerCase().includes('b.com')) {
-      qualScore = 24;
+    const jobEd = job.minEducation.toLowerCase();
+    const candEd = candidate.educationLevel.toLowerCase();
+
+    // Check specific professional domains
+    const isMedicalJob =
+      jobEd.includes('nurs') ||
+      jobEd.includes('gnm') ||
+      jobEd.includes('dmlt') ||
+      jobEd.includes('mbbs') ||
+      jobEd.includes('pharm');
+    const isEducationJob =
+      jobEd.includes('b.ed') || jobEd.includes('d.ed') || jobEd.includes('teacher');
+    const isFinanceJob =
+      jobEd.includes('b.com') ||
+      jobEd.includes('m.com') ||
+      jobEd.includes('ca ') ||
+      jobEd.includes('accounts');
+
+    if (isMedicalJob) {
+      if (
+        candEd.includes('nurs') ||
+        candEd.includes('gnm') ||
+        candEd.includes('dmlt') ||
+        candEd.includes('pharm') ||
+        candEd.includes('diploma')
+      ) {
+        qualScore = 25; // Exact professional qualification match
+      } else {
+        qualScore = 10; // Unrelated degree for specialized medical role
+      }
+    } else if (isEducationJob) {
+      if (candEd.includes('b.ed') || candEd.includes('d.ed')) {
+        qualScore = 25;
+      } else if (
+        candEd.includes('graduate') ||
+        candEd.includes('degree') ||
+        candEd.includes('b.sc')
+      ) {
+        qualScore = 18;
+      } else {
+        qualScore = 12;
+      }
+    } else if (isFinanceJob) {
+      if (candEd.includes('b.com') || candEd.includes('m.com') || candEd.includes('ca')) {
+        qualScore = 25;
+      } else if (candEd.includes('graduate') || candEd.includes('degree')) {
+        qualScore = 20;
+      } else {
+        qualScore = 14;
+      }
     } else {
-      qualScore = 20;
+      // General commercial / retail / showroom / hospitality vacancies
+      if (jobEd.includes('graduate') || jobEd.includes('degree')) {
+        if (
+          candEd.includes('graduate') ||
+          candEd.includes('degree') ||
+          candEd.includes('b.com') ||
+          candEd.includes('b.sc') ||
+          candEd.includes('b.a')
+        ) {
+          qualScore = 24;
+        } else if (candEd.includes('puc') || candEd.includes('12th')) {
+          qualScore = 18;
+        } else {
+          qualScore = 14;
+        }
+      } else if (jobEd.includes('puc')) {
+        if (
+          candEd.includes('graduate') ||
+          candEd.includes('degree') ||
+          candEd.includes('b.com')
+        ) {
+          qualScore = 22;
+        } else if (candEd.includes('puc') || candEd.includes('12th')) {
+          qualScore = 20;
+        } else {
+          qualScore = 14;
+        }
+      } else {
+        qualScore = 20;
+      }
     }
   }
 

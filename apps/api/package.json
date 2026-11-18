@@ -8,6 +8,7 @@
     "start": "node dist/main",
     "lint": "tsc --noEmit",
     "test": "jest",
+    "test:http": "ts-node test/test-http-api.ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio"

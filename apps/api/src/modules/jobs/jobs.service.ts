@@ -40,7 +40,8 @@ export class JobsService {
     }
 
     if (filters?.isWalkIn !== undefined) {
-      result = result.filter((j) => j.isWalkIn === filters.isWalkIn);
+      const walkInBool = String(filters.isWalkIn) === 'true';
+      result = result.filter((j) => j.isWalkIn === walkInBool);
     }
 
     if (filters?.salaryMin) {

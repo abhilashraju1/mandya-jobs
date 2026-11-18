@@ -100,6 +100,32 @@ const matchC = calculateJobMatch(candC, jobC);
 assert(matchC.score <= 40, `Scenario C: Score is ${matchC.score}% (expected low ~34%)`);
 assert(matchC.isEligible === true, 'Scenario C (CRUCIAL): Low match NEVER disables Apply CTA');
 
+// Scenario D (Qualification Domain Comparison): Relevant Nursing Credential outranks unrelated B.Com
+const nurseJob = {
+  requiredSkills: ['nursing', 'patient care'],
+  minEducation: 'GNM / BSc Nursing',
+  minExpYears: 1,
+  taluk: 'Mandya Town',
+};
+const nurseCandidate = {
+  skills: ['nursing', 'patient care'],
+  educationLevel: 'GNM / Diploma Nursing',
+  totalExpYears: 1,
+  taluk: 'Mandya Town',
+};
+const bcomCandidate = {
+  skills: ['nursing', 'patient care'],
+  educationLevel: 'B.Com Graduate',
+  totalExpYears: 1,
+  taluk: 'Mandya Town',
+};
+const nurseMatch = calculateJobMatch(nurseCandidate, nurseJob);
+const bcomMatch = calculateJobMatch(bcomCandidate, nurseJob);
+assert(
+  nurseMatch.score > bcomMatch.score,
+  `Scenario D: Relevant nursing credential (${nurseMatch.score}%) outranks unrelated B.Com degree (${bcomMatch.score}%)`
+);
+
 // -----------------------------------------------------------------------------
 // SUITE 2: Fraud & Scam Heuristic Scanner
 // -----------------------------------------------------------------------------
