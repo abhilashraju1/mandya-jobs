@@ -100,7 +100,7 @@ const matchC = calculateJobMatch(candC, jobC);
 assert(matchC.score <= 40, `Scenario C: Score is ${matchC.score}% (expected low ~34%)`);
 assert(matchC.isEligible === true, 'Scenario C (CRUCIAL): Low match NEVER disables Apply CTA');
 
-// Scenario D (Qualification Domain Comparison): Relevant Nursing Credential outranks unrelated B.Com
+// Scenario D (Qualification Domain Comparison): Relevant Nursing Credential outranks unrelated B.Com & Mechanical Diploma
 const nurseJob = {
   requiredSkills: ['nursing', 'patient care'],
   minEducation: 'GNM / BSc Nursing',
@@ -119,11 +119,26 @@ const bcomCandidate = {
   totalExpYears: 1,
   taluk: 'Mandya Town',
 };
+const mechCandidate = {
+  skills: ['nursing', 'patient care'],
+  educationLevel: 'Diploma in Mechanical Engineering',
+  totalExpYears: 1,
+  taluk: 'Mandya Town',
+};
 const nurseMatch = calculateJobMatch(nurseCandidate, nurseJob);
 const bcomMatch = calculateJobMatch(bcomCandidate, nurseJob);
+const mechMatch = calculateJobMatch(mechCandidate, nurseJob);
 assert(
   nurseMatch.score > bcomMatch.score,
   `Scenario D: Relevant nursing credential (${nurseMatch.score}%) outranks unrelated B.Com degree (${bcomMatch.score}%)`
+);
+assert(
+  nurseMatch.score > mechMatch.score,
+  `Scenario D2: Relevant Nursing Diploma (${nurseMatch.score}%) strictly outranks Mechanical Diploma (${mechMatch.score}%) for Nursing job`
+);
+assert(
+  mechMatch.score <= 81,
+  `Scenario D2: Mechanical Diploma receives unrelated qualification score (${mechMatch.score}% <= 81%)`
 );
 
 // -----------------------------------------------------------------------------

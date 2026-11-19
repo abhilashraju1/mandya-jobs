@@ -6,6 +6,21 @@ import { ApplicationStatus, RoleType } from '@mandya-jobs/types';
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
+  @Get()
+  getAll() {
+    return this.applicationsService.getAll();
+  }
+
+  @Post('reset')
+  resetApplications() {
+    return this.applicationsService.resetApplications();
+  }
+
+  @Post('seed')
+  seedApplications() {
+    return this.applicationsService.seedApplications();
+  }
+
   @Post()
   apply(
     @Body()

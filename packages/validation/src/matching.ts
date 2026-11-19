@@ -85,16 +85,23 @@ export function calculateJobMatch(
       jobEd.includes('accounts');
 
     if (isMedicalJob) {
-      if (
+      const isMedicalCandidate =
         candEd.includes('nurs') ||
         candEd.includes('gnm') ||
+        candEd.includes('anm') ||
         candEd.includes('dmlt') ||
         candEd.includes('pharm') ||
-        candEd.includes('diploma')
-      ) {
-        qualScore = 25; // Exact professional qualification match
+        candEd.includes('mbbs') ||
+        (candEd.includes('diploma') &&
+          (candEd.includes('nurs') ||
+            candEd.includes('medical') ||
+            candEd.includes('health') ||
+            candEd.includes('clinical')));
+
+      if (isMedicalCandidate) {
+        qualScore = 25; // Exact professional medical qualification match
       } else {
-        qualScore = 10; // Unrelated degree for specialized medical role
+        qualScore = 10; // Unrelated degree/diploma (e.g. Mechanical, Commerce) for specialized medical role
       }
     } else if (isEducationJob) {
       if (candEd.includes('b.ed') || candEd.includes('d.ed')) {

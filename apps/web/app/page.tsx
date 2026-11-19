@@ -7,29 +7,21 @@ import { MobileBottomNav } from '../components/MobileBottomNav';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { JobDTO, ApplicationStatus } from '@mandya-jobs/types';
 import { MANDYA_SEED_JOBS, calculateJobMatch } from '@mandya-jobs/validation';
+import { useLanguage } from '../context/LanguageContext';
+import { fetchJobs, submitApplication, seedDemoData, resetData } from '../lib/api';
 import {
   Search,
   CheckCircle2,
   X,
   SlidersHorizontal,
   Calendar,
+  Sparkles,
+  RotateCcw,
 } from 'lucide-react';
-
-// Default candidate profile used for dynamic match computation
-const DEFAULT_CANDIDATE = {
-  id: 'cand_1',
-  name: 'Priya R.',
-  phone: '9845987654',
-  skills: ['billing', 'tally', 'customer service'],
-  educationLevel: 'B.Com / Graduate',
-  totalExpYears: 1.5,
-  taluk: 'Mandya Town',
-  expectedSalary: 18000,
-  resumeName: 'Priya_R_Resume_2026.pdf',
-};
+import Link from 'next/link';
 
 export default function HomePage() {
-  const [lang, setLang] = useState<'en' | 'kn'>('en');
+  const { lang, toggleLanguage } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
   const [savedJobs, setSavedJobs] = useState<Record<string, boolean>>({});
@@ -38,19 +30,45 @@ export default function HomePage() {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedTaluk, setSelectedTaluk] = useState<string>('ALL');
   const [walkInOnly, setWalkInOnly] = useState<boolean>(false);
-  const [candidateProfile, setCandidateProfile] = useState(DEFAULT_CANDIDATE);
-  const [approvedJobs, setApprovedJobs] = useState<JobDTO[]>([]);
+  const [candidateProfile, setCandidateProfile] = useState<any | null>(null);
+  const [liveJobs, setLiveJobs] = useState<JobDTO[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [seedNotice, setSeedNotice] = useState<string>('');
 
-  // Initialize and synchronize with localStorage on client mount
-  useEffect(() => {
+  // Guest applicant input for quick apply without pre-existing profile
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+
+  const loadJobs = async () => {
+    setIsLoading(true);
     try {
-      const storedApproved = localStorage.getItem('mandya_approved_jobs');
-      if (storedApproved) {
-        const parsed = JSON.parse(storedApproved);
-        if (Array.isArray(parsed)) {
-          setApprovedJobs(parsed);
+      const data = await fetchJobs();
+      if (Array.isArray(data) && data.length > 0) {
+        setLiveJobs(data);
+      } else {
+        const storedApproved = localStorage.getItem('mandya_approved_jobs');
+        if (storedApproved) {
+          const parsed = JSON.parse(storedApproved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLiveJobs(parsed);
+          } else {
+            setLiveJobs([]);
+          }
+        } else {
+          setLiveJobs([]);
         }
       }
+    } catch {
+      setLiveJobs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadJobs();
+
+    try {
       const storedSaved = localStorage.getItem('mandya_saved_jobs');
       if (storedSaved) {
         const parsed = JSON.parse(storedSaved);
@@ -71,69 +89,132 @@ export default function HomePage() {
         setCandidateProfile(JSON.parse(storedProfile));
       }
     } catch {
-      // Fallback cleanly if localStorage is restricted
+      // Fallback cleanly
     }
   }, []);
-
-  const toggleLanguage = () => {
-    setLang((prev) => (prev === 'en' ? 'kn' : 'en'));
-  };
 
   const handleApplyClick = (job: JobDTO) => {
     setActiveModalJob(job);
   };
 
-  const confirmApplication = () => {
-    if (activeModalJob) {
-      const updatedApplied = { ...appliedJobs, [activeModalJob.id]: true };
-      setAppliedJobs(updatedApplied);
-
-      // Persist to localStorage for cross-page & session synchronization
-      try {
-        localStorage.setItem('mandya_applied_jobs', JSON.stringify(updatedApplied));
-
-        const existingApps = JSON.parse(localStorage.getItem('mandya_applications') || '[]');
-        const newApp = {
-          id: `app_${Date.now()}`,
-          jobId: activeModalJob.id,
-          jobTitle: activeModalJob.title,
-          orgName: activeModalJob.orgName,
-          candidateId: candidateProfile.id,
-          candidateName: candidateProfile.name,
-          candidatePhone: candidateProfile.phone,
-          candidateTaluk: candidateProfile.taluk,
-          matchScore: activeModalJob.match?.score,
-          resumeName: candidateProfile.resumeName,
-          status: ApplicationStatus.SUBMITTED,
-          createdAt: new Date().toISOString(),
-          statusHistory: [
-            {
-              status: ApplicationStatus.SUBMITTED,
-              note: 'Application submitted online',
-              changedAt: 'Just now',
-            },
-          ],
-        };
-        localStorage.setItem('mandya_applications', JSON.stringify([newApp, ...existingApps]));
-      } catch {
-        // Storage fallback
-      }
-
-      setApplySuccessMessage(
-        lang === 'kn'
-          ? `ನಿಮ್ಮ ಅರ್ಜಿಯನ್ನು "${activeModalJob.title}" ಹುದ್ದೆಗೆ (${activeModalJob.orgName}) ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ!`
-          : `Application submitted successfully for "${activeModalJob.title}" at ${activeModalJob.orgName}!`
-      );
-      setActiveModalJob(null);
-      setTimeout(() => setApplySuccessMessage(''), 5000);
+  const handleSeedDemo = async () => {
+    try {
+      await seedDemoData();
+      localStorage.setItem('mandya_approved_jobs', JSON.stringify(MANDYA_SEED_JOBS));
+      setLiveJobs(MANDYA_SEED_JOBS);
+      setSeedNotice('Seeded 9 verified Mandya vacancies!');
+      setTimeout(() => setSeedNotice(''), 4000);
+    } catch {
+      setLiveJobs(MANDYA_SEED_JOBS);
     }
+  };
+
+  const handleResetData = async () => {
+    try {
+      await resetData();
+      localStorage.removeItem('mandya_approved_jobs');
+      localStorage.removeItem('mandya_saved_jobs');
+      localStorage.removeItem('mandya_applied_jobs');
+      localStorage.removeItem('mandya_applications');
+      localStorage.removeItem('mandya_candidate_profile');
+      setLiveJobs([]);
+      setSavedJobs({});
+      setAppliedJobs({});
+      setCandidateProfile(null);
+      setSeedNotice('Reset to clean initial launch state (0 vacancies, 0 applications).');
+      setTimeout(() => setSeedNotice(''), 4000);
+    } catch {
+      setLiveJobs([]);
+    }
+  };
+
+  const activateDemoCandidate = () => {
+    const demo = {
+      id: 'cand_1',
+      name: 'Priya R.',
+      phone: '9845987654',
+      skills: ['billing', 'tally', 'customer service'],
+      educationLevel: 'B.Com / Graduate',
+      totalExpYears: 1.5,
+      taluk: 'Mandya Town',
+      expectedSalary: 18000,
+      resumeName: 'Priya_R_Resume_2026.pdf',
+    };
+    try {
+      localStorage.setItem('mandya_candidate_profile', JSON.stringify(demo));
+    } catch {}
+    setCandidateProfile(demo);
+    setSeedNotice('Activated test candidate persona: Priya R.');
+    setTimeout(() => setSeedNotice(''), 3000);
+  };
+
+  const confirmApplication = async () => {
+    if (!activeModalJob) return;
+
+    const applicantName = candidateProfile?.name || guestName || 'Candidate';
+    const applicantPhone = candidateProfile?.phone || guestPhone || '9845987654';
+
+    const updatedApplied = { ...appliedJobs, [activeModalJob.id]: true };
+    setAppliedJobs(updatedApplied);
+
+    try {
+      localStorage.setItem('mandya_applied_jobs', JSON.stringify(updatedApplied));
+
+      // 1. Submit via real API
+      await submitApplication({
+        jobId: activeModalJob.id,
+        candidate: {
+          id: candidateProfile?.id || `cand_${Date.now()}`,
+          name: applicantName,
+          phone: applicantPhone,
+          taluk: candidateProfile?.taluk || 'Mandya Town',
+          matchScore: activeModalJob.match?.score,
+        },
+      }).catch((e) => console.debug('API submit err:', e));
+
+      // 2. Persist in local storage for offline continuity
+      const existingApps = JSON.parse(localStorage.getItem('mandya_applications') || '[]');
+      const newApp = {
+        id: `app_${Date.now()}`,
+        jobId: activeModalJob.id,
+        jobTitle: activeModalJob.title,
+        orgName: activeModalJob.orgName,
+        candidateId: candidateProfile?.id || `cand_${Date.now()}`,
+        candidateName: applicantName,
+        candidatePhone: applicantPhone,
+        candidateTaluk: candidateProfile?.taluk || 'Mandya Town',
+        matchScore: activeModalJob.match?.score,
+        resumeName: candidateProfile?.resumeName || 'Uploaded_Resume.pdf',
+        status: ApplicationStatus.SUBMITTED,
+        createdAt: new Date().toISOString(),
+        statusHistory: [
+          {
+            status: ApplicationStatus.SUBMITTED,
+            note: 'Application submitted online',
+            changedAt: 'Just now',
+          },
+        ],
+      };
+      localStorage.setItem('mandya_applications', JSON.stringify([newApp, ...existingApps]));
+    } catch {
+      // Storage fallback
+    }
+
+    setApplySuccessMessage(
+      lang === 'kn'
+        ? `ನಿಮ್ಮ ಅರ್ಜಿಯನ್ನು "${activeModalJob.title}" ಹುದ್ದೆಗೆ (${activeModalJob.orgName}) ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ!`
+        : `Application submitted successfully for "${activeModalJob.title}" at ${activeModalJob.orgName}!`
+    );
+    setActiveModalJob(null);
+    setTimeout(() => setApplySuccessMessage(''), 5000);
   };
 
   const toggleSavedJob = (jobId: string) => {
     setSavedJobs((prev) => {
       const next = { ...prev, [jobId]: !prev[jobId] };
       try {
-        const savedList = MANDYA_SEED_JOBS.filter((j) => next[j.id]);
+        const allJobs = liveJobs.length > 0 ? liveJobs : MANDYA_SEED_JOBS;
+        const savedList = allJobs.filter((j) => next[j.id]);
         localStorage.setItem('mandya_saved_jobs', JSON.stringify(savedList));
       } catch {
         // Storage fallback
@@ -142,35 +223,35 @@ export default function HomePage() {
     });
   };
 
-  const allAvailableJobs = [
-    ...approvedJobs,
-    ...MANDYA_SEED_JOBS.filter((j) => !approvedJobs.some((a) => a.id === j.id)),
-  ];
+  const allAvailableJobs = liveJobs;
 
   // Dynamically compute match scores for all published and verified Mandya vacancies
   const computedJobs: JobDTO[] = allAvailableJobs
     .filter((job) => job.status === 'PUBLISHED' && job.orgVerified)
     .map((job) => {
-    const match = calculateJobMatch(
-      {
-        skills: candidateProfile.skills,
-        educationLevel: candidateProfile.educationLevel,
-        totalExpYears: candidateProfile.totalExpYears,
-        taluk: candidateProfile.taluk,
-        expectedSalary: candidateProfile.expectedSalary,
-      },
-      {
-        requiredSkills: job.requiredSkills,
-        preferredSkills: job.preferredSkills,
-        minEducation: job.minEducation,
-        minExpYears: job.minExpYears,
-        taluk: job.taluk,
-        salaryMin: job.salaryMin,
-        salaryMax: job.salaryMax,
+      let match = undefined;
+      if (candidateProfile) {
+        match = calculateJobMatch(
+          {
+            skills: candidateProfile.skills || [],
+            educationLevel: candidateProfile.educationLevel,
+            totalExpYears: candidateProfile.totalExpYears || 0,
+            taluk: candidateProfile.taluk,
+            expectedSalary: candidateProfile.expectedSalary,
+          },
+          {
+            requiredSkills: job.requiredSkills || [],
+            preferredSkills: job.preferredSkills,
+            minEducation: job.minEducation,
+            minExpYears: job.minExpYears,
+            taluk: job.taluk,
+            salaryMin: job.salaryMin,
+            salaryMax: job.salaryMax,
+          }
+        );
       }
-    );
-    return { ...job, match };
-  });
+      return { ...job, match };
+    });
 
   // Filter jobs based on search term, taluk, and walk-in toggle
   const filteredJobs = computedJobs.filter((job) => {
@@ -263,20 +344,81 @@ export default function HomePage() {
             <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs text-xs space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-800">
-                  {lang === 'kn' ? 'ಮ್ಯಾಚಿಂಗ್ ಪ್ರೊಫೈಲ್' : 'Active Profile'}
+                  {lang === 'kn' ? 'ಅಭ್ಯರ್ಥಿ ಪ್ರೊಫೈಲ್' : 'Candidate Status'}
                 </span>
-                <span className="text-[10px] bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded-full border border-teal-200">
-                  Live Match
-                </span>
-              </div>
-              <p className="text-slate-600 font-medium">{candidateProfile.name}</p>
-              <p className="text-[11px] text-slate-400">{candidateProfile.educationLevel} · {candidateProfile.taluk}</p>
-              <div className="flex flex-wrap gap-1 pt-1">
-                {candidateProfile.skills.map((s) => (
-                  <span key={s} className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-600">
-                    {s}
+                {candidateProfile ? (
+                  <span className="text-[10px] bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded-full border border-teal-200">
+                    Active Profile
                   </span>
-                ))}
+                ) : (
+                  <span className="text-[10px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-full">
+                    Guest Mode
+                  </span>
+                )}
+              </div>
+              {candidateProfile ? (
+                <div>
+                  <p className="text-slate-800 font-bold">{candidateProfile.name}</p>
+                  <p className="text-[11px] text-slate-500">{candidateProfile.educationLevel} · {candidateProfile.taluk}</p>
+                  <div className="flex flex-wrap gap-1 pt-2">
+                    {candidateProfile.skills?.map((s: string) => (
+                      <span key={s} className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-600">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="pt-2 flex justify-between items-center text-[11px]">
+                    <Link href="/candidate/profile" className="text-blue-600 font-semibold hover:underline">
+                      Edit Profile
+                    </Link>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('mandya_candidate_profile');
+                        setCandidateProfile(null);
+                      }}
+                      className="text-slate-400 hover:text-slate-600 text-[10px]"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-slate-500">
+                    {lang === 'kn'
+                      ? 'ವೈಯಕ್ತಿಕ ಹೊಂದಾಣಿಕೆ ಅಂಕಗಳನ್ನು ನೋಡಲು ಪ್ರೊಫೈಲ್ ರಚಿಸಿ ಅಥವಾ ಡೆಮೊ ಅಭ್ಯರ್ಥಿಯನ್ನು ಬಳಸಿ.'
+                      : 'Sign in to see personalized 5-tier matching scores and 1-click apply.'}
+                  </p>
+                  <button
+                    onClick={activateDemoCandidate}
+                    className="w-full py-1.5 px-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition flex items-center justify-center gap-1 shadow-2xs"
+                  >
+                    <Sparkles className="w-3 h-3 text-blue-600" />
+                    <span>Test as Priya R.</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Clean Launch & Reset Testing Card */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-3 text-xs space-y-2">
+              <span className="font-bold text-[11px] text-slate-600 uppercase tracking-wider block">
+                Verification Controls
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSeedDemo}
+                  className="flex-1 py-1.5 px-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 shadow-2xs"
+                >
+                  Seed 9 Jobs
+                </button>
+                <button
+                  onClick={handleResetData}
+                  className="py-1.5 px-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-red-600 hover:bg-red-50 shadow-2xs"
+                  title="Reset to 0 jobs (clean launch)"
+                >
+                  Reset Clean
+                </button>
               </div>
             </div>
 
@@ -365,11 +507,18 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Success Alert Banner */}
+            {/* Success & Seed Alert Banners */}
             {applySuccessMessage && (
-              <div className="bg-teal-50 border border-teal-200 text-teal-800 p-3 rounded-2xl flex items-center gap-2 text-xs font-semibold shadow-sm animate-fade-in">
+              <div className="bg-teal-50 border border-teal-200 text-teal-800 p-3 rounded-2xl flex items-center gap-2 text-xs font-semibold shadow-xs animate-fade-in">
                 <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
                 <span>{applySuccessMessage}</span>
+              </div>
+            )}
+
+            {seedNotice && (
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-2xl flex items-center gap-2 text-xs font-semibold shadow-xs animate-fade-in">
+                <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>{seedNotice}</span>
               </div>
             )}
 
@@ -384,8 +533,39 @@ export default function HomePage() {
               </span>
             </div>
 
-            {/* Job Cards Listing - Responsive Multi-column Grid on Large Screens */}
-            {filteredJobs.length === 0 ? (
+            {/* Job Cards Listing - Zero State vs List Grid */}
+            {allAvailableJobs.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-4">
+                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                  <Search className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {lang === 'kn' ? 'ಯಾವುದೇ ಉದ್ಯೋಗಗಳು ಪ್ರಕಟವಾಗಿಲ್ಲ' : 'Clean First Launch: No Jobs in Database'}
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                    {lang === 'kn'
+                      ? 'ಇದು ಸ್ವಚ್ಛ ಆರಂಭಿಕ ಡೇಟಾಬೇಸ್ ಸ್ಥಿತಿಯಾಗಿದೆ. ಪರೀಕ್ಷಿಸಲು ಡೆಮೊ ಉದ್ಯೋಗಗಳನ್ನು ಲೋಡ್ ಮಾಡಿ ಅಥವಾ ಉದ್ಯೋಗ ಪ್ರಕಟಿಸಿ.'
+                      : 'Zero sample jobs exist by default. Click below to seed verified Mandya opportunities or post a vacancy as an employer.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={handleSeedDemo}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 shadow-sm flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{lang === 'kn' ? 'ಡೆಮೊ ಉದ್ಯೋಗ ಸೇರಿಸಿ (Seed 9 Jobs)' : 'Seed Verified Vacancies (9 Jobs)'}</span>
+                  </button>
+                  <Link
+                    href="/employer/post"
+                    className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50"
+                  >
+                    {lang === 'kn' ? 'ಉದ್ಯೋಗ ಪ್ರಕಟಿಸಿ' : 'Post a Vacancy'}
+                  </Link>
+                </div>
+              </div>
+            ) : filteredJobs.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2">
                 <Search className="w-8 h-8 text-slate-300 mx-auto" />
                 <p className="text-sm font-bold text-slate-700">No vacancies match your criteria</p>
@@ -527,25 +707,55 @@ export default function HomePage() {
                 : `You are applying for "${activeModalJob.title}" at ${activeModalJob.orgName}.`}
             </p>
 
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-4 text-xs space-y-1.5">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Match score:</span>
-                <span className="font-bold text-teal-700">{activeModalJob.match?.score}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Applicant:</span>
-                <span className="font-medium text-slate-800">{candidateProfile.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Resume:</span>
-                <span className="font-medium text-slate-800">{candidateProfile.resumeName}</span>
-              </div>
-              {activeModalJob.isWalkIn && (
-                <div className="pt-1.5 border-t border-slate-200/60 text-amber-800">
-                  <span className="font-bold">Walk-in Venue:</span> {activeModalJob.walkInVenue}
+            {candidateProfile ? (
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-4 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Applicant:</span>
+                  <span className="font-bold text-slate-800">{candidateProfile.name}</span>
                 </div>
-              )}
-            </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Mobile:</span>
+                  <span className="font-medium text-slate-700">{candidateProfile.phone}</span>
+                </div>
+                {activeModalJob.match?.score !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Match score:</span>
+                    <span className="font-bold text-teal-700">{activeModalJob.match.score}%</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Resume:</span>
+                  <span className="font-medium text-slate-800">{candidateProfile.resumeName || 'Profile Resume'}</span>
+                </div>
+                {activeModalJob.isWalkIn && (
+                  <div className="pt-1.5 border-t border-slate-200/60 text-amber-800">
+                    <span className="font-bold">Walk-in Venue:</span> {activeModalJob.walkInVenue}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3 mb-4">
+                <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-xl text-[11px] text-blue-900">
+                  {lang === 'kn'
+                    ? '100% ಉಚಿತ ಅರ್ಜಿ ಸಲ್ಲಿಕೆ. ನಿಮ್ಮ ಹೆಸರು ಮತ್ತು ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ.'
+                    : '100% free application. Enter your details to submit directly.'}
+                </div>
+                <input
+                  type="text"
+                  placeholder={lang === 'kn' ? 'ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರು' : 'Your Full Name'}
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                />
+                <input
+                  type="tel"
+                  placeholder={lang === 'kn' ? '10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ' : '10-digit mobile number'}
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                />
+              </div>
+            )}
 
             <div className="flex gap-2">
               <button

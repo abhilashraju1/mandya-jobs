@@ -4,13 +4,17 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Briefcase, Globe, ShieldCheck, Bookmark, FileCheck, User, PlusCircle, Shield } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface NavbarProps {
-  currentLang: 'en' | 'kn';
-  onToggleLang: () => void;
+  currentLang?: 'en' | 'kn';
+  onToggleLang?: () => void;
 }
 
-export function Navbar({ currentLang, onToggleLang }: NavbarProps) {
+export function Navbar({ currentLang: propLang, onToggleLang: propToggle }: NavbarProps = {}) {
+  const { lang, toggleLanguage } = useLanguage();
+  const currentLang = propLang || lang;
+  const onToggleLang = propToggle || toggleLanguage;
   const pathname = usePathname() || '/';
 
   const isLinkActive = (path: string) => {

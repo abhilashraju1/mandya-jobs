@@ -205,6 +205,21 @@ export class ApplicationsService {
     return this.updateStatus(id, ApplicationStatus.WITHDRAWN, 'Candidate withdrew their application', RoleType.CANDIDATE);
   }
 
+  getAll(): ApplicationDTO[] {
+    return this.applications;
+  }
+
+  resetApplications(): { count: number; message: string } {
+    this.applications = [];
+    return { count: 0, message: 'All applications cleared' };
+  }
+
+  seedApplications(): { count: number; message: string } {
+    this.applications = [];
+    this.seedDemoApplications();
+    return { count: this.applications.length, message: `Seeded ${this.applications.length} applications` };
+  }
+
   private seedDemoApplications() {
     this.applications.push({
       id: 'app_1',

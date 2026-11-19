@@ -69,10 +69,16 @@ export function JobCard({
             </button>
           )}
 
-          {/* Match Percentage Badge */}
-          <div className={`px-2.5 py-1 rounded-full text-xs font-bold border ${matchColor}`}>
-            {matchScore}% {currentLang === 'kn' ? 'ಹೊಂದಾಣಿಕೆ' : 'match'}
-          </div>
+          {/* Match Percentage Badge or Verified Tag */}
+          {job.match?.score !== undefined ? (
+            <div className={`px-2.5 py-1 rounded-full text-xs font-bold border ${matchColor}`}>
+              {job.match.score}% {currentLang === 'kn' ? 'ಹೊಂದಾಣಿಕೆ' : 'match'}
+            </div>
+          ) : (
+            <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-full">
+              {currentLang === 'kn' ? 'ದೃಢೀಕೃತ' : 'Verified'}
+            </span>
+          )}
         </div>
       </div>
 

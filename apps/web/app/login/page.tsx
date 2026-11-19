@@ -5,9 +5,10 @@ import { Navbar } from '../../components/Navbar';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { Phone, KeyRound, CheckCircle2, ShieldCheck, ArrowRight, RotateCw, Lock } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function LoginPage() {
-  const [lang, setLang] = useState<'en' | 'kn'>('en');
+  const { lang, toggleLanguage } = useLanguage();
   const [phone, setPhone] = useState('9845987654');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [otp, setOtp] = useState('');
@@ -79,7 +80,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-[#17243B] pb-24">
       <OfflineBanner lang={lang} />
-      <Navbar currentLang={lang} onToggleLang={() => setLang((p) => (p === 'en' ? 'kn' : 'en'))} />
+      <Navbar currentLang={lang} onToggleLang={toggleLanguage} />
 
       <main className="max-w-md mx-auto px-4 py-8">
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { LanguageProvider } from '../context/LanguageContext';
 
 export const metadata: Metadata = {
   title: 'Mandya Jobs | ಮಂಡ್ಯ ಜಾಬ್ಸ್',
@@ -26,7 +27,9 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="antialiased bg-[#F5F7FB] min-h-screen">
-        {children}
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `

@@ -3,27 +3,43 @@
 import React, { useState } from 'react';
 import { Navbar } from '../../../components/Navbar';
 import { OfflineBanner } from '../../../components/OfflineBanner';
-import { CheckCircle2, Send, Building2, MapPin, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Send, Building2, MapPin, AlertTriangle, Sparkles } from 'lucide-react';
 import { detectJobFraud } from '@mandya-jobs/validation';
 import { JobStatus, EmploymentType, WorkMode, SalaryPeriod } from '@mandya-jobs/types';
+import { useLanguage } from '../../../context/LanguageContext';
+import { createJobDraft, submitJobForReview } from '../../../lib/api';
 
 export default function EmployerPostJobPage() {
-  const [lang, setLang] = useState<'en' | 'kn'>('en');
-  const [businessName, setBusinessName] = useState('Sri Lakshmi Showroom');
+  const { lang, toggleLanguage } = useLanguage();
+  const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('Showroom');
-  const [jobTitle, setJobTitle] = useState('Billing Executive');
+  const [jobTitle, setJobTitle] = useState('');
   const [taluk, setTaluk] = useState('Mandya Town');
-  const [salaryMin, setSalaryMin] = useState(15000);
-  const [salaryMax, setSalaryMax] = useState(20000);
-  const [skillsNeeded, setSkillsNeeded] = useState('billing, tally, customer service');
-  const [description, setDescription] = useState('Handle counter billing, POS operations, and customer queries.');
-  const [contactInfo, setContactInfo] = useState('9845012345');
-  const [isWalkIn, setIsWalkIn] = useState(true);
-  const [walkInVenue, setWalkInVenue] = useState('Sri Lakshmi Showroom, 2nd Floor, VV Road, Mandya');
+  const [salaryMin, setSalaryMin] = useState<number | string>('');
+  const [salaryMax, setSalaryMax] = useState<number | string>('');
+  const [skillsNeeded, setSkillsNeeded] = useState('');
+  const [description, setDescription] = useState('');
+  const [contactInfo, setContactInfo] = useState('');
+  const [isWalkIn, setIsWalkIn] = useState(false);
+  const [walkInVenue, setWalkInVenue] = useState('');
   const [submittedJobId, setSubmittedJobId] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const fillSampleData = () => {
+    setBusinessName('Sri Lakshmi Showroom');
+    setBusinessType('Showroom');
+    setJobTitle('Billing Executive');
+    setTaluk('Mandya Town');
+    setSalaryMin(15000);
+    setSalaryMax(20000);
+    setSkillsNeeded('billing, tally, customer service');
+    setDescription('Handle counter billing, POS operations, and customer queries.');
+    setContactInfo('9845012345');
+    setIsWalkIn(true);
+    setWalkInVenue('Sri Lakshmi Showroom, 2nd Floor, VV Road, Mandya');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const jobId = `job_${Date.now()}`;
@@ -49,8 +65,8 @@ export default function EmployerPostJobPage() {
       workMode: WorkMode.ON_SITE,
       taluk,
       addressDisplay: `${taluk}, Mandya District`,
-      salaryMin: Number(salaryMin),
-      salaryMax: Number(salaryMax),
+      salaryMin: Number(salaryMin) || 15000,
+      salaryMax: Number(salaryMax) || 20000,
       salaryPeriod: SalaryPeriod.MONTHLY,
       isNegotiable: true,
       minExpYears: 1,
@@ -70,6 +86,11 @@ export default function EmployerPostJobPage() {
     };
 
     try {
+      // 1. Submit to real API
+      await createJobDraft(newJob).catch((e) => console.debug('API draft err:', e));
+      await submitJobForReview(jobId).catch((e) => console.debug('API submit err:', e));
+
+      // 2. Persist in local storage for offline continuity
       const existingQueue = JSON.parse(localStorage.getItem('mandya_moderation_queue') || '[]');
       localStorage.setItem('mandya_moderation_queue', JSON.stringify([newJob, ...existingQueue]));
     } catch {
@@ -83,19 +104,29 @@ export default function EmployerPostJobPage() {
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-[#17243B]">
       <OfflineBanner lang={lang} />
-      <Navbar currentLang={lang} onToggleLang={() => setLang((p) => (p === 'en' ? 'kn' : 'en'))} />
+      <Navbar currentLang={lang} onToggleLang={toggleLanguage} />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">
         <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-          <div className="mb-4">
-            <h1 className="text-xl font-black text-slate-900">
-              {lang === 'kn' ? 'ಉದ್ಯೋಗ ಪ್ರಕಟಿಸಿ' : 'Post a job'}
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {lang === 'kn'
-                ? 'ಪ್ರಕಟಣೆಯ ಮೊದಲು ನಮ್ಮ ತಂಡದಿಂದ ಪರಿಶೀಲಿಸಲ್ಪಡುತ್ತದೆ'
-                : 'Reviewed by our moderation team before going live'}
-            </p>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div>
+              <h1 className="text-xl font-black text-slate-900">
+                {lang === 'kn' ? 'ಉದ್ಯೋಗ ಪ್ರಕಟಿಸಿ' : 'Post a Job'}
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {lang === 'kn'
+                  ? 'ಪ್ರಕಟಣೆಯ ಮೊದಲು ನಮ್ಮ ತಂಡದಿಂದ ಪರಿಶೀಲಿಸಲ್ಪಡುತ್ತದೆ'
+                  : 'Reviewed by our moderation team before going live'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={fillSampleData}
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition flex items-center gap-1.5 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              <span>Fill Sample (Sri Lakshmi Showroom)</span>
+            </button>
           </div>
 
           {submitted ? (

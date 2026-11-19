@@ -4,18 +4,21 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Search, Bookmark, FileCheck, User } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MobileBottomNavProps {
-  currentLang: 'en' | 'kn';
+  currentLang?: 'en' | 'kn';
   applicationCount?: number;
   savedCount?: number;
 }
 
 export function MobileBottomNav({
-  currentLang,
+  currentLang: propLang,
   applicationCount = 0,
   savedCount = 0,
-}: MobileBottomNavProps) {
+}: MobileBottomNavProps = {}) {
+  const { lang } = useLanguage();
+  const currentLang = propLang || lang;
   const pathname = usePathname() || '/';
 
   const navItems = [

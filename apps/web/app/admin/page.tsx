@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '../../components/Navbar';
 import { OfflineBanner } from '../../components/OfflineBanner';
-import { Check, X, AlertTriangle, FileText, CheckCircle2 } from 'lucide-react';
+import { Check, X, AlertTriangle, FileText, CheckCircle2, User, Building2, Sparkles } from 'lucide-react';
 import { JobDTO, JobStatus } from '@mandya-jobs/types';
+import { useLanguage } from '../../context/LanguageContext';
 
 const INITIAL_PENDING_QUEUE: any[] = [
   {
@@ -67,7 +68,7 @@ const INITIAL_PENDING_QUEUE: any[] = [
 ];
 
 export default function AdminReviewPage() {
-  const [lang, setLang] = useState<'en' | 'kn'>('en');
+  const { lang, toggleLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState<'pending' | 'applications' | 'profiles'>('pending');
   const [pendingJobs, setPendingJobs] = useState<any[]>(INITIAL_PENDING_QUEUE);
   const [toastMessage, setToastMessage] = useState('');
@@ -75,6 +76,8 @@ export default function AdminReviewPage() {
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [applicationsCount, setApplicationsCount] = useState(0);
+  const [applicationsList, setApplicationsList] = useState<any[]>([]);
+  const [profilesList, setProfilesList] = useState<any[]>([]);
 
   // Check admin session and load dynamic data on mount
   useEffect(() => {
@@ -85,7 +88,18 @@ export default function AdminReviewPage() {
       const storedApps = localStorage.getItem('mandya_applications');
       if (storedApps) {
         const parsed = JSON.parse(storedApps);
-        if (Array.isArray(parsed)) setApplicationsCount(parsed.length);
+        if (Array.isArray(parsed)) {
+          setApplicationsList(parsed);
+          setApplicationsCount(parsed.length);
+        }
+      }
+
+      const storedProfile = localStorage.getItem('mandya_candidate_profile');
+      if (storedProfile) {
+        const parsed = JSON.parse(storedProfile);
+        if (parsed.fullName || parsed.name) {
+          setProfilesList([parsed]);
+        }
       }
 
       const storedQueue = localStorage.getItem('mandya_moderation_queue');
@@ -176,7 +190,7 @@ export default function AdminReviewPage() {
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-[#17243B]">
       <OfflineBanner lang={lang} />
-      <Navbar currentLang={lang} onToggleLang={() => setLang((p) => (p === 'en' ? 'kn' : 'en'))} />
+      <Navbar currentLang={lang} onToggleLang={toggleLanguage} />
 
       {!isAdminAuthenticated ? (
         <main className="max-w-md mx-auto px-4 py-16">
@@ -296,94 +310,168 @@ export default function AdminReviewPage() {
             </div>
           )}
 
-          {/* Pending Moderation Queue */}
-          <div className="space-y-4">
-            {pendingJobs.map((job) => (
-              <div
-                key={job.id}
-                className={`rounded-2xl border p-4 transition ${
-                  job.flagged
-                    ? 'border-amber-400 bg-amber-50/20 shadow-sm'
-                    : 'border-slate-200 bg-white shadow-sm'
-                }`}
-              >
-                <div className="mb-2">
-                  <h3 className="font-bold text-sm text-slate-900">{job.title}</h3>
-                  <p className="text-xs text-slate-500">
-                    {job.company} • {job.locality}
-                  </p>
-                </div>
+          {/* Tab 1: Pending Moderation Queue */}
+          {activeTab === 'pending' && (
+            <div className="space-y-4">
+              {pendingJobs.map((job) => (
+                <div
+                  key={job.id}
+                  className={`rounded-2xl border p-4 transition ${
+                    job.flagged
+                      ? 'border-amber-400 bg-amber-50/20 shadow-sm'
+                      : 'border-slate-200 bg-white shadow-sm'
+                  }`}
+                >
+                  <div className="mb-2">
+                    <h3 className="font-bold text-sm text-slate-900">{job.title}</h3>
+                    <p className="text-xs text-slate-500">
+                      {job.company} • {job.locality}
+                    </p>
+                  </div>
 
-                <div className="mb-3">
-                  {job.flagged ? (
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{job.flagMessage}</span>
+                  <div className="mb-3">
+                    {job.flagged ? (
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{job.flagMessage}</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-medium text-teal-700">{job.flagMessage}</p>
+                    )}
+                  </div>
+
+                  {/* Moderation Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleAction(job.id, 'approved')}
+                      className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                        job.flagged
+                          ? 'border border-teal-600 text-teal-700 hover:bg-teal-50'
+                          : 'bg-teal-700 hover:bg-teal-800 text-white shadow-sm'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Approve</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleAction(job.id, 'rejected')}
+                      className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                        job.flagged
+                          ? 'bg-red-700 hover:bg-red-800 text-white shadow-sm'
+                          : 'border border-red-600 text-red-600 hover:bg-red-50'
+                      }`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Reject</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {pendingJobs.length === 0 && (
+                <div className="text-center py-8 text-xs text-slate-400">
+                  All pending moderation reviews are complete!
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 2: Live Applications */}
+          {activeTab === 'applications' && (
+            <div className="space-y-3">
+              {applicationsList.length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400">
+                  No applications received yet.
+                </div>
+              ) : (
+                applicationsList.map((app) => (
+                  <div
+                    key={app.id}
+                    className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs flex items-center justify-between"
+                  >
+                    <div>
+                      <h4 className="font-bold text-slate-900">{app.candidateName}</h4>
+                      <p className="text-slate-500 mt-0.5">
+                        {app.jobTitle} • {app.orgName} • Phone: {app.candidatePhone}
+                      </p>
                     </div>
-                  ) : (
-                    <p className="text-xs font-medium text-teal-700">{job.flagMessage}</p>
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      {app.status}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Tab 3: Candidate Profiles */}
+          {activeTab === 'profiles' && (
+            <div className="space-y-3">
+              {profilesList.length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400">
+                  No candidate profiles registered yet.
+                </div>
+              ) : (
+                profilesList.map((prof, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-bold text-slate-900">{prof.fullName || prof.name}</h4>
+                      <span className="text-[11px] text-slate-500">{prof.taluk}</span>
+                    </div>
+                    <p className="text-slate-600">{prof.education}</p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {prof.skills?.map((s: string) => (
+                        <span
+                          key={s}
+                          className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-600"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Latest Application Box (Only shown if applications exist) */}
+          {applicationsList.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-slate-100">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                Latest application
+              </h2>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900">
+                      {applicationsList[0].candidateName}
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      {applicationsList[0].jobTitle} • {applicationsList[0].orgName}
+                    </p>
+                  </div>
+                  {applicationsList[0].matchScore && (
+                    <span className="font-bold text-xs text-teal-700">
+                      {applicationsList[0].matchScore}%
+                    </span>
                   )}
                 </div>
 
-                {/* Moderation Action Buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleAction(job.id, 'approved')}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                      job.flagged
-                        ? 'border border-teal-600 text-teal-700 hover:bg-teal-50'
-                        : 'bg-teal-700 hover:bg-teal-800 text-white shadow-sm'
-                    }`}
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Approve</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleAction(job.id, 'rejected')}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                      job.flagged
-                        ? 'bg-red-700 hover:bg-red-800 text-white shadow-sm'
-                        : 'border border-red-600 text-red-600 hover:bg-red-50'
-                    }`}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>Reject</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {pendingJobs.length === 0 && (
-              <div className="text-center py-8 text-xs text-slate-400">
-                All pending moderation reviews are complete!
-              </div>
-            )}
-          </div>
-
-          {/* Latest Application Box */}
-          <div className="mt-6 pt-4 border-t border-slate-100">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Latest application
-            </h2>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-bold text-xs text-slate-900">Priya R.</h4>
-                  <p className="text-[11px] text-slate-500">
-                    Billing Executive • Sri Lakshmi Showroom
-                  </p>
-                </div>
-                <span className="font-bold text-xs text-teal-700">90%</span>
-              </div>
-
-              <div className="mt-2 text-[11px] font-semibold text-blue-600 flex items-center gap-1">
-                <FileText className="w-3 h-3" />
-                <span>Priya_Resume_2026.pdf (Verified)</span>
+                {applicationsList[0].resumeName && (
+                  <div className="mt-2 text-[11px] font-semibold text-blue-600 flex items-center gap-1">
+                    <FileText className="w-3 h-3" />
+                    <span>{applicationsList[0].resumeName} (Verified)</span>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
       )}

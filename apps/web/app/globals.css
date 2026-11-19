@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,6 +13,8 @@
 body {
   color: var(--color-text-main);
   background-color: var(--color-bg-base);
+  font-family: 'Noto Sans Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 

@@ -11,6 +11,16 @@ export class JobsService {
     this.seedInitialJobs();
   }
 
+  resetJobs(): { count: number; message: string } {
+    this.jobs = [];
+    return { count: 0, message: 'All job records cleared' };
+  }
+
+  seedJobs(): { count: number; message: string } {
+    this.seedInitialJobs();
+    return { count: this.jobs.length, message: `Seeded ${this.jobs.length} verified jobs` };
+  }
+
   getAllPublished(filters?: JobFilterParams, candidateProfile?: any): JobDTO[] {
     const now = new Date();
     let result = this.jobs.filter(

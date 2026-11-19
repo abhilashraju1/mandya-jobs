@@ -6,12 +6,13 @@ import { MobileBottomNav } from '../../../components/MobileBottomNav';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { JobCard } from '../../../components/JobCard';
 import { JobDTO } from '@mandya-jobs/types';
-import { MANDYA_SEED_JOBS } from '@mandya-jobs/validation';
 import { Bookmark, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '../../../context/LanguageContext';
+import { submitApplication } from '../../../lib/api';
 
 export default function CandidateSavedJobsPage() {
-  const [lang, setLang] = useState<'en' | 'kn'>('en');
+  const { lang, toggleLanguage } = useLanguage();
   const [savedJobs, setSavedJobs] = useState<JobDTO[]>([]);
   const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
 
@@ -21,8 +22,7 @@ export default function CandidateSavedJobsPage() {
       if (stored) {
         setSavedJobs(JSON.parse(stored));
       } else {
-        // Default to first seed job for initial experience
-        setSavedJobs([MANDYA_SEED_JOBS[0]]);
+        setSavedJobs([]);
       }
 
       const storedApplied = localStorage.getItem('mandya_applied_jobs');
@@ -30,7 +30,7 @@ export default function CandidateSavedJobsPage() {
         setAppliedJobs(JSON.parse(storedApplied));
       }
     } catch {
-      setSavedJobs([MANDYA_SEED_JOBS[0]]);
+      setSavedJobs([]);
     }
   }, []);
 
@@ -43,17 +43,31 @@ export default function CandidateSavedJobsPage() {
         const existingApps = JSON.parse(localStorage.getItem('mandya_applications') || '[]');
         if (!existingApps.some((a: any) => a.jobId === job.id)) {
           const profile = JSON.parse(localStorage.getItem('mandya_candidate_profile') || '{}');
+          const candidateName = profile.fullName || profile.name || 'Candidate';
+          const candidatePhone = profile.phone || '9845987654';
+
+          submitApplication({
+            jobId: job.id,
+            candidate: {
+              id: profile.id || `cand_${Date.now()}`,
+              name: candidateName,
+              phone: candidatePhone,
+              taluk: profile.taluk || 'Mandya Town',
+              matchScore: job.match?.score,
+            },
+          }).catch((e) => console.debug('API submit err:', e));
+
           const newApp = {
             id: `app_${Date.now()}`,
             jobId: job.id,
             jobTitle: job.title,
             orgName: job.orgName,
-            candidateId: profile.id || 'cand_1',
-            candidateName: profile.fullName || profile.name || 'Priya R.',
-            candidatePhone: profile.phone || '9845987654',
+            candidateId: profile.id || `cand_${Date.now()}`,
+            candidateName,
+            candidatePhone,
             candidateTaluk: profile.taluk || 'Mandya Town',
-            matchScore: job.match?.score || 90,
-            resumeName: profile.resumeName || 'Priya_Resume_2026.pdf',
+            matchScore: job.match?.score,
+            resumeName: profile.resumeName || 'Uploaded_Resume.pdf',
             status: 'SUBMITTED',
             createdAt: new Date().toISOString(),
             statusHistory: [
@@ -88,7 +102,7 @@ export default function CandidateSavedJobsPage() {
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-[#17243B] pb-24">
       <OfflineBanner lang={lang} />
-      <Navbar currentLang={lang} onToggleLang={() => setLang((p) => (p === 'en' ? 'kn' : 'en'))} />
+      <Navbar currentLang={lang} onToggleLang={toggleLanguage} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">
         <div className="flex items-center gap-2 mb-4">

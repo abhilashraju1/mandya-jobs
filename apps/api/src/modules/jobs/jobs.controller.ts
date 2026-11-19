@@ -16,6 +16,16 @@ export class JobsController {
     return this.jobsService.getModerationQueue(status);
   }
 
+  @Post('reset')
+  resetJobs() {
+    return this.jobsService.resetJobs();
+  }
+
+  @Post('seed')
+  seedJobs() {
+    return this.jobsService.seedJobs();
+  }
+
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.jobsService.getById(id);
