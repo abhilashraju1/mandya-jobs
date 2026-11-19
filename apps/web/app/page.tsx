@@ -190,131 +190,234 @@ export default function HomePage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F5F7FB] text-[#17243B] pb-24">
+    <div className="min-h-screen bg-[#F5F7FB] text-[#17243B] pb-24 md:pb-12">
       <OfflineBanner lang={lang} />
       <Navbar currentLang={lang} onToggleLang={toggleLanguage} />
 
-      <main className="max-w-md mx-auto px-4 py-4 space-y-4">
-        {/* Anti-Scam Advisory Banner */}
-        <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-amber-900 shadow-sm">
-          <span className="text-amber-600 font-bold text-base leading-none mt-0.5">⚠️</span>
-          <div>
-            <p className="font-bold text-[12px]">
-              {lang === 'kn' ? 'ಮಂಡ್ಯ ಜಾಬ್ಸ್ ಎಚ್ಚರಿಕೆ' : '100% Free for Job Seekers'}
-            </p>
-            <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
-              {lang === 'kn'
-                ? 'ಯಾವುದೇ ಉದ್ಯೋಗಕ್ಕೆ ನೋಂದಣಿ ಶುಲ್ಕ ನೀಡಬೇಡಿ. ಮಂಡ್ಯ ಜಾಬ್ಸ್ ಉಚಿತ ಸೇವೆ.'
-                : 'Never pay registration fees or training charges. All applications are free.'}
-            </p>
-          </div>
-        </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="md:grid md:grid-cols-12 md:gap-8 items-start">
+          {/* Desktop Left Sidebar (Filters, Taluks, Anti-Scam) */}
+          <aside className="hidden md:block md:col-span-4 lg:col-span-3 space-y-5 sticky top-20">
+            {/* Taluk Filter Card */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-3">
+                {lang === 'kn' ? 'ತಾಲೂಕು (Taluk)' : 'Filter by Taluk'}
+              </h3>
+              <div className="space-y-1">
+                {[
+                  { id: 'ALL', en: 'All Mandya District', kn: 'ಸಂಪೂರ್ಣ ಮಂಡ್ಯ ಜಿಲ್ಲೆ' },
+                  { id: 'Mandya Town', en: 'Mandya Town', kn: 'ಮಂಡ್ಯ ನಗರ' },
+                  { id: 'Maddur', en: 'Maddur', kn: 'ಮದ್ದೂರು' },
+                  { id: 'Malavalli', en: 'Malavalli', kn: 'ಮಳವಳ್ಳಿ' },
+                  { id: 'Srirangapatna', en: 'Srirangapatna', kn: 'ಶ್ರೀರಂಗಪಟ್ಟಣ' },
+                  { id: 'Pandavapura', en: 'Pandavapura', kn: 'ಪಾಂಡವಪುರ' },
+                  { id: 'Nagamangala', en: 'Nagamangala', kn: 'ನಾಗಮಂಗಲ' },
+                  { id: 'KR Pete', en: 'K.R. Pete', kn: 'ಕೆ.ಆರ್. ಪೇಟೆ' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTaluk(t.id)}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition flex items-center justify-between ${
+                      selectedTaluk.toLowerCase() === t.id.toLowerCase()
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>{lang === 'kn' ? t.kn : t.en}</span>
+                    {selectedTaluk.toLowerCase() === t.id.toLowerCase() && (
+                      <span className="text-xs">✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* Global Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={
-              lang === 'kn'
-                ? 'ಹುದ್ದೆ, ಅಂಗಡಿ, ಆಸ್ಪತ್ರೆ, ತಾಲೂಕು ಹುಡುಕಿ...'
-                : 'Search title, shop, hospital, taluk, skill...'
-            }
-            className="w-full pl-10 pr-12 py-3 bg-white rounded-2xl border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm"
-          />
-          <button
-            onClick={() => setShowFilterDrawer(true)}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition"
-            title="Filter jobs"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
-        </div>
+            {/* Walk-in Hiring Drive Filter */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">
+                {lang === 'kn' ? 'ಸಂದರ್ಶನ ವಿಧಾನ' : 'Interview Type'}
+              </h3>
+              <button
+                onClick={() => setWalkInOnly(!walkInOnly)}
+                className={`w-full py-2.5 px-3 rounded-xl border text-left font-medium transition flex items-center justify-between ${
+                  walkInOnly
+                    ? 'border-amber-600 bg-amber-50 text-amber-900 font-bold'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span className="flex items-center gap-1.5 text-xs">
+                  <Calendar className="w-4 h-4 text-amber-600" />
+                  <span>{lang === 'kn' ? 'ನೇರ ಸಂದರ್ಶನ ಮಾತ್ರ' : 'Walk-in Drives Only'}</span>
+                </span>
+                <span
+                  className={`w-4 h-4 rounded-full border text-[10px] flex items-center justify-center ${
+                    walkInOnly ? 'bg-amber-600 border-amber-600 text-white' : 'border-slate-300'
+                  }`}
+                >
+                  {walkInOnly && '✓'}
+                </span>
+              </button>
+            </div>
 
-        {/* Active Filters Pill Bar */}
-        {(selectedTaluk !== 'ALL' || walkInOnly) && (
-          <div className="flex items-center gap-1.5 flex-wrap text-xs">
-            {selectedTaluk !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 font-semibold rounded-full border border-blue-200">
-                {selectedTaluk}
-                <button onClick={() => setSelectedTaluk('ALL')} className="hover:text-blue-900">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {walkInOnly && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 font-semibold rounded-full border border-amber-200">
-                Walk-ins Only
-                <button onClick={() => setWalkInOnly(false)} className="hover:text-amber-950">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            <button
-              onClick={() => {
-                setSelectedTaluk('ALL');
-                setWalkInOnly(false);
-              }}
-              className="text-slate-400 hover:text-slate-600 underline text-[11px] ml-1"
-            >
-              Reset
-            </button>
-          </div>
-        )}
+            {/* Candidate Match Engine Card */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800">
+                  {lang === 'kn' ? 'ಮ್ಯಾಚಿಂಗ್ ಪ್ರೊಫೈಲ್' : 'Active Profile'}
+                </span>
+                <span className="text-[10px] bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded-full border border-teal-200">
+                  Live Match
+                </span>
+              </div>
+              <p className="text-slate-600 font-medium">{candidateProfile.name}</p>
+              <p className="text-[11px] text-slate-400">{candidateProfile.educationLevel} · {candidateProfile.taluk}</p>
+              <div className="flex flex-wrap gap-1 pt-1">
+                {candidateProfile.skills.map((s) => (
+                  <span key={s} className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-600">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
 
-        {/* Success Alert Banner */}
-        {applySuccessMessage && (
-          <div className="bg-teal-50 border border-teal-200 text-teal-800 p-3 rounded-2xl flex items-center gap-2 text-xs font-semibold shadow-sm animate-fade-in">
-            <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-            <span>{applySuccessMessage}</span>
-          </div>
-        )}
+            {/* Anti-Scam Advisory */}
+            <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 text-xs text-amber-900 shadow-xs">
+              <div className="flex items-center gap-1.5 font-bold mb-1">
+                <span className="text-amber-600 text-sm">⚠️</span>
+                <span>{lang === 'kn' ? '100% ಉಚಿತ ಸೇವೆ' : '100% Free for Candidates'}</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                {lang === 'kn'
+                  ? 'ಯಾವುದೇ ಉದ್ಯೋಗಕ್ಕೆ ನೋಂದಣಿ ಅಥವಾ ತರಬೇತಿ ಶುಲ್ಕ ನೀಡಬೇಡಿ. ಮಂಡ್ಯ ಜಾಬ್ಸ್ ಎಲ್ಲಾ ಅಭ್ಯರ್ಥಿಗಳಿಗೆ ಉಚಿತವಾಗಿದೆ.'
+                  : 'Never pay registration fees or security deposits. Mandya Jobs is strictly free for job seekers.'}
+              </p>
+            </div>
+          </aside>
 
-        {/* Job Feed Header */}
-        <div className="flex items-center justify-between pt-1">
-          <h2 className="text-sm font-bold text-slate-800">
-            {lang === 'kn' ? 'ಲಭ್ಯವಿರುವ ಉದ್ಯೋಗಗಳು' : 'Verified Opportunities in Mandya'}
-            <span className="ml-1.5 text-xs text-slate-400 font-normal">({filteredJobs.length})</span>
-          </h2>
-          <span className="text-[11px] font-medium text-slate-500">
-            {lang === 'kn' ? 'ದೃಢೀಕೃತ ಸಂಸ್ಥೆಗಳು' : 'Verified Employers'}
-          </span>
-        </div>
+          {/* Right Main Feed */}
+          <div className="md:col-span-8 lg:col-span-9 space-y-4 min-w-0">
+            {/* Mobile Anti-Scam Advisory Banner */}
+            <div className="md:hidden bg-amber-50 border border-amber-200/80 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-amber-900 shadow-sm">
+              <span className="text-amber-600 font-bold text-base leading-none mt-0.5">⚠️</span>
+              <div>
+                <p className="font-bold text-[12px]">
+                  {lang === 'kn' ? 'ಮಂಡ್ಯ ಜಾಬ್ಸ್ ಎಚ್ಚರಿಕೆ' : '100% Free for Job Seekers'}
+                </p>
+                <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
+                  {lang === 'kn'
+                    ? 'ಯಾವುದೇ ಉದ್ಯೋಗಕ್ಕೆ ನೋಂದಣಿ ಶುಲ್ಕ ನೀಡಬೇಡಿ. ಮಂಡ್ಯ ಜಾಬ್ಸ್ ಉಚಿತ ಸೇವೆ.'
+                    : 'Never pay registration fees or training charges. All applications are free.'}
+                </p>
+              </div>
+            </div>
 
-        {/* Job Cards Listing */}
-        {filteredJobs.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2">
-            <Search className="w-8 h-8 text-slate-300 mx-auto" />
-            <p className="text-sm font-bold text-slate-700">No vacancies match your criteria</p>
-            <p className="text-xs text-slate-400">Try adjusting your filters or search keywords.</p>
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setSelectedTaluk('ALL');
-                setWalkInOnly(false);
-              }}
-              className="text-xs font-semibold text-blue-600 hover:underline pt-2 block mx-auto"
-            >
-              Clear all filters
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredJobs.map((job) => (
-              <JobCard
-                key={job.id}
-                job={job}
-                currentLang={lang}
-                onApply={handleApplyClick}
-                onToggleSave={toggleSavedJob}
-                isApplied={appliedJobs[job.id]}
-                isSaved={savedJobs[job.id]}
+            {/* Global Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={
+                  lang === 'kn'
+                    ? 'ಹುದ್ದೆ, ಅಂಗಡಿ, ಆಸ್ಪತ್ರೆ, ತಾಲೂಕು ಹುಡುಕಿ...'
+                    : 'Search title, shop, hospital, taluk, skill...'
+                }
+                className="w-full pl-10 pr-12 py-3 bg-white rounded-2xl border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-xs"
               />
-            ))}
+              <button
+                onClick={() => setShowFilterDrawer(true)}
+                className="md:hidden absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition"
+                title="Filter jobs"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Active Filters Pill Bar */}
+            {(selectedTaluk !== 'ALL' || walkInOnly) && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                {selectedTaluk !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 font-semibold rounded-full border border-blue-200">
+                    {selectedTaluk}
+                    <button onClick={() => setSelectedTaluk('ALL')} className="hover:text-blue-900">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {walkInOnly && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 font-semibold rounded-full border border-amber-200">
+                    Walk-ins Only
+                    <button onClick={() => setWalkInOnly(false)} className="hover:text-amber-950">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    setSelectedTaluk('ALL');
+                    setWalkInOnly(false);
+                  }}
+                  className="text-slate-400 hover:text-slate-600 underline text-[11px] ml-1"
+                >
+                  Reset
+                </button>
+              </div>
+            )}
+
+            {/* Success Alert Banner */}
+            {applySuccessMessage && (
+              <div className="bg-teal-50 border border-teal-200 text-teal-800 p-3 rounded-2xl flex items-center gap-2 text-xs font-semibold shadow-sm animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                <span>{applySuccessMessage}</span>
+              </div>
+            )}
+
+            {/* Job Feed Header */}
+            <div className="flex items-center justify-between pt-1">
+              <h2 className="text-sm font-bold text-slate-800">
+                {lang === 'kn' ? 'ಲಭ್ಯವಿರುವ ಉದ್ಯೋಗಗಳು' : 'Verified Opportunities in Mandya'}
+                <span className="ml-1.5 text-xs text-slate-400 font-normal">({filteredJobs.length})</span>
+              </h2>
+              <span className="text-[11px] font-medium text-slate-500">
+                {lang === 'kn' ? 'ದೃಢೀಕೃತ ಸಂಸ್ಥೆಗಳು' : 'Verified Employers'}
+              </span>
+            </div>
+
+            {/* Job Cards Listing - Responsive Multi-column Grid on Large Screens */}
+            {filteredJobs.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2">
+                <Search className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-sm font-bold text-slate-700">No vacancies match your criteria</p>
+                <p className="text-xs text-slate-400">Try adjusting your filters or search keywords.</p>
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedTaluk('ALL');
+                    setWalkInOnly(false);
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:underline pt-2 block mx-auto"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {filteredJobs.map((job) => (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    currentLang={lang}
+                    onApply={handleApplyClick}
+                    onToggleSave={toggleSavedJob}
+                    isApplied={appliedJobs[job.id]}
+                    isSaved={savedJobs[job.id]}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </main>
 
       {/* Filter Drawer Dialog */}

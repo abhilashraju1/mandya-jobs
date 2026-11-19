@@ -90,8 +90,8 @@ export default function CandidateSavedJobsPage() {
       <OfflineBanner lang={lang} />
       <Navbar currentLang={lang} onToggleLang={() => setLang((p) => (p === 'en' ? 'kn' : 'en'))} />
 
-      <main className="max-w-md mx-auto px-4 py-4">
-        <div className="flex items-center gap-2 mb-3">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">
+        <div className="flex items-center gap-2 mb-4">
           <Link href="/" className="text-slate-500 hover:text-slate-800 p-1 -ml-1">
             <ArrowLeft className="w-5 h-5" />
           </Link>
@@ -101,7 +101,7 @@ export default function CandidateSavedJobsPage() {
         </div>
 
         {savedJobs.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center max-w-md mx-auto">
             <Bookmark className="w-10 h-10 text-slate-300 mx-auto mb-2" />
             <h2 className="font-bold text-sm text-slate-700">
               {lang === 'kn' ? 'ಉಳಿಸಿದ ಉದ್ಯೋಗಗಳಿಲ್ಲ' : 'No saved jobs yet'}
@@ -119,7 +119,7 @@ export default function CandidateSavedJobsPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {savedJobs.map((job) => (
               <JobCard
                 key={job.id}

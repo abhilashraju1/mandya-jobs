@@ -85,10 +85,8 @@ export default function EmployerPostJobPage() {
       <OfflineBanner lang={lang} />
       <Navbar currentLang={lang} onToggleLang={() => setLang((p) => (p === 'en' ? 'kn' : 'en'))} />
 
-      <main className="max-w-md mx-auto px-4 py-4 pb-20">
-        <p className="text-xs font-semibold text-slate-500 mb-2">2 Post a job (employer)</p>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
           <div className="mb-4">
             <h1 className="text-xl font-black text-slate-900">
               {lang === 'kn' ? 'ಉದ್ಯೋಗ ಪ್ರಕಟಿಸಿ' : 'Post a job'}

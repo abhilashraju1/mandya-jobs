@@ -139,7 +139,7 @@ export default function CandidateApplicationsPage() {
       <OfflineBanner lang={lang} />
       <Navbar currentLang={lang} onToggleLang={() => setLang((p) => (p === 'en' ? 'kn' : 'en'))} />
 
-      <main className="max-w-md mx-auto px-4 py-4">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">
         <div className="flex items-center gap-2 mb-3">
           <Link href="/" className="text-slate-500 hover:text-slate-800 p-1 -ml-1">
             <ArrowLeft className="w-5 h-5" />
