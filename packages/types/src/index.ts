@@ -166,6 +166,12 @@ export interface JobDTO {
     timestamp: string;
   }>;
   version?: number;
+  submissionRef?: string;
+  isGuestSubmission?: boolean;
+  posterContactName?: string;
+  applicationRoute?: string;
+  specificCredential?: string;
+  contactVerified?: boolean;
 }
 
 export interface ApplicationDTO {

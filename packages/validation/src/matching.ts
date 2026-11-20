@@ -9,6 +9,7 @@ export interface MatchingCandidateInput {
 }
 
 export interface MatchingJobInput {
+  title?: string;
   requiredSkills: string[];
   preferredSkills?: string[];
   minEducation?: string;
@@ -69,13 +70,36 @@ export function calculateJobMatch(
     const jobEd = job.minEducation.toLowerCase();
     const candEd = candidate.educationLevel.toLowerCase();
 
-    // Check specific professional domains
-    const isMedicalJob =
+    // Check specific professional medical / healthcare sub-disciplines
+    const isNursingJob =
       jobEd.includes('nurs') ||
       jobEd.includes('gnm') ||
+      jobEd.includes('anm') ||
+      jobEd.includes('ಶುಶ್ರೂಷ') ||
+      jobEd.includes('ದಾದಿ') ||
+      (job.title && (job.title.toLowerCase().includes('nurs') || job.title.includes('ಶುಶ್ರೂಷ')));
+
+    const isPharmacyJob =
+      jobEd.includes('pharm') ||
+      jobEd.includes('b.pharm') ||
+      jobEd.includes('d.pharm') ||
+      jobEd.includes('ಫಾರ್ಮಸಿ') ||
+      jobEd.includes('ಔಷಧ');
+
+    const isDMLTJob =
       jobEd.includes('dmlt') ||
+      jobEd.includes('mlt') ||
+      jobEd.includes('lab tech') ||
+      jobEd.includes('ಲ್ಯಾಬ್');
+
+    const isMedicalJob =
+      isNursingJob ||
+      isPharmacyJob ||
+      isDMLTJob ||
       jobEd.includes('mbbs') ||
-      jobEd.includes('pharm');
+      jobEd.includes('medical') ||
+      jobEd.includes('ವೈದ್ಯಕೀಯ');
+
     const isEducationJob =
       jobEd.includes('b.ed') || jobEd.includes('d.ed') || jobEd.includes('teacher');
     const isFinanceJob =
@@ -84,7 +108,48 @@ export function calculateJobMatch(
       jobEd.includes('ca ') ||
       jobEd.includes('accounts');
 
-    if (isMedicalJob) {
+    if (isNursingJob) {
+      const isNursingCandidate =
+        candEd.includes('nurs') ||
+        candEd.includes('gnm') ||
+        candEd.includes('anm') ||
+        candEd.includes('ಶುಶ್ರೂಷ') ||
+        candEd.includes('ದಾದಿ') ||
+        (candEd.includes('diploma') && candEd.includes('nurs'));
+
+      const isAlliedMedical =
+        candEd.includes('pharm') ||
+        candEd.includes('dmlt') ||
+        candEd.includes('mlt') ||
+        candEd.includes('mbbs') ||
+        candEd.includes('medical') ||
+        candEd.includes('clinical') ||
+        candEd.includes('health');
+
+      if (isNursingCandidate) {
+        qualScore = 25; // Exact professional nursing qualification match
+      } else if (isAlliedMedical) {
+        qualScore = 15; // Allied paramedical credential (distinct from nursing)
+      } else {
+        qualScore = 10; // Unrelated degree/diploma (e.g. Mechanical Engineering, Commerce)
+      }
+    } else if (isPharmacyJob) {
+      if (candEd.includes('pharm') || candEd.includes('ಫಾರ್ಮಸಿ')) {
+        qualScore = 25;
+      } else if (candEd.includes('nurs') || candEd.includes('dmlt') || candEd.includes('medical')) {
+        qualScore = 15;
+      } else {
+        qualScore = 10;
+      }
+    } else if (isDMLTJob) {
+      if (candEd.includes('dmlt') || candEd.includes('mlt') || candEd.includes('ಲ್ಯಾಬ್')) {
+        qualScore = 25;
+      } else if (candEd.includes('nurs') || candEd.includes('pharm') || candEd.includes('medical')) {
+        qualScore = 15;
+      } else {
+        qualScore = 10;
+      }
+    } else if (isMedicalJob) {
       const isMedicalCandidate =
         candEd.includes('nurs') ||
         candEd.includes('gnm') ||
@@ -101,7 +166,7 @@ export function calculateJobMatch(
       if (isMedicalCandidate) {
         qualScore = 25; // Exact professional medical qualification match
       } else {
-        qualScore = 10; // Unrelated degree/diploma (e.g. Mechanical, Commerce) for specialized medical role
+        qualScore = 10; // Unrelated degree/diploma
       }
     } else if (isEducationJob) {
       if (candEd.includes('b.ed') || candEd.includes('d.ed')) {

@@ -94,12 +94,15 @@ export class JobsService {
 
   createDraft(data: Partial<JobDTO>): JobDTO {
     const id = `job_${Date.now()}_${++this.nextId}`;
+    const submissionRef = data.submissionRef || `REF-MDY-${Math.floor(100000 + Math.random() * 900000)}`;
     const newJob: JobDTO = {
       id,
-      orgId: data.orgId || 'org_demo',
+      submissionRef,
+      orgId: data.orgId || `org_${Date.now()}`,
       orgName: data.orgName || 'Local Business',
       orgBusinessType: data.orgBusinessType || 'Showroom',
-      orgVerified: true,
+      orgVerified: data.orgVerified ?? false,
+      isGuestSubmission: data.isGuestSubmission ?? true,
       categoryId: data.categoryId || 'showrooms',
       categoryName: data.categoryName || 'Retail Showroom',
       title: data.title || 'Untitled Job',
@@ -113,6 +116,9 @@ export class JobsService {
       isNegotiable: data.isNegotiable || false,
       minExpYears: data.minExpYears || 0,
       minEducation: data.minEducation || 'PUC',
+      specificCredential: data.specificCredential,
+      applicationRoute: data.applicationRoute,
+      posterContactName: data.posterContactName,
       openings: data.openings || 1,
       description: data.description || '',
       benefits: data.benefits || ['Provident Fund', 'Incentives'],

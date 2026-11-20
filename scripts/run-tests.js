@@ -125,9 +125,31 @@ const mechCandidate = {
   totalExpYears: 1,
   taluk: 'Mandya Town',
 };
+const pharmacyCandidate = {
+  skills: ['nursing', 'patient care'],
+  educationLevel: 'Diploma in Pharmacy (D.Pharm)',
+  totalExpYears: 1,
+  taluk: 'Mandya Town',
+};
+const dmltCandidate = {
+  skills: ['nursing', 'patient care'],
+  educationLevel: 'Diploma in Medical Lab Technology (DMLT)',
+  totalExpYears: 1,
+  taluk: 'Mandya Town',
+};
+const kannadaNurseCandidate = {
+  skills: ['nursing', 'patient care'],
+  educationLevel: 'ಜನರಲ್ ನರ್ಸಿಂಗ್ ಡಿಪ್ಲೊಮಾ (GNM)',
+  totalExpYears: 1,
+  taluk: 'Mandya Town',
+};
 const nurseMatch = calculateJobMatch(nurseCandidate, nurseJob);
 const bcomMatch = calculateJobMatch(bcomCandidate, nurseJob);
 const mechMatch = calculateJobMatch(mechCandidate, nurseJob);
+const pharmacyMatch = calculateJobMatch(pharmacyCandidate, nurseJob);
+const dmltMatch = calculateJobMatch(dmltCandidate, nurseJob);
+const kannadaNurseMatch = calculateJobMatch(kannadaNurseCandidate, nurseJob);
+
 assert(
   nurseMatch.score > bcomMatch.score,
   `Scenario D: Relevant nursing credential (${nurseMatch.score}%) outranks unrelated B.Com degree (${bcomMatch.score}%)`
@@ -135,6 +157,22 @@ assert(
 assert(
   nurseMatch.score > mechMatch.score,
   `Scenario D2: Relevant Nursing Diploma (${nurseMatch.score}%) strictly outranks Mechanical Diploma (${mechMatch.score}%) for Nursing job`
+);
+assert(
+  nurseMatch.score > pharmacyMatch.score,
+  `Scenario D3: Exact Nursing credential (${nurseMatch.score}%) strictly outranks Pharmacy (${pharmacyMatch.score}%) for Nursing job`
+);
+assert(
+  nurseMatch.score > dmltMatch.score,
+  `Scenario D3: Exact Nursing credential (${nurseMatch.score}%) strictly outranks DMLT (${dmltMatch.score}%) for Nursing job`
+);
+assert(
+  pharmacyMatch.score > mechMatch.score,
+  `Scenario D3: Allied medical Pharmacy (${pharmacyMatch.score}%) outranks unrelated Mechanical (${mechMatch.score}%)`
+);
+assert(
+  kannadaNurseMatch.score === nurseMatch.score,
+  `Scenario D4: Kannada Nursing credential alias matches English score (${kannadaNurseMatch.score}% === ${nurseMatch.score}%)`
 );
 assert(
   mechMatch.score <= 81,

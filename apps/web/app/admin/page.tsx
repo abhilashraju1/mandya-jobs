@@ -6,8 +6,9 @@ import { OfflineBanner } from '../../components/OfflineBanner';
 import { Check, X, AlertTriangle, FileText, CheckCircle2, User, Building2, Sparkles } from 'lucide-react';
 import { JobDTO, JobStatus } from '@mandya-jobs/types';
 import { useLanguage } from '../../context/LanguageContext';
+import { moderateJob, fetchModerationQueue, fetchApplications } from '../../lib/api';
 
-const INITIAL_PENDING_QUEUE: any[] = [
+const DEMO_PENDING_QUEUE: any[] = [
   {
     id: 'job_pending_1',
     title: 'Garment Sales Associate',
@@ -70,7 +71,7 @@ const INITIAL_PENDING_QUEUE: any[] = [
 export default function AdminReviewPage() {
   const { lang, toggleLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState<'pending' | 'applications' | 'profiles'>('pending');
-  const [pendingJobs, setPendingJobs] = useState<any[]>(INITIAL_PENDING_QUEUE);
+  const [pendingJobs, setPendingJobs] = useState<any[]>([]);
   const [toastMessage, setToastMessage] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminPin, setAdminPin] = useState('');
@@ -85,14 +86,22 @@ export default function AdminReviewPage() {
       const isAuth = localStorage.getItem('mandya_admin_auth') === 'true';
       setIsAdminAuthenticated(isAuth);
 
-      const storedApps = localStorage.getItem('mandya_applications');
-      if (storedApps) {
-        const parsed = JSON.parse(storedApps);
-        if (Array.isArray(parsed)) {
-          setApplicationsList(parsed);
-          setApplicationsCount(parsed.length);
+      // Load live applications from API or storage
+      fetchApplications().then((apps) => {
+        if (Array.isArray(apps) && apps.length > 0) {
+          setApplicationsList(apps);
+          setApplicationsCount(apps.length);
+        } else {
+          const storedApps = localStorage.getItem('mandya_applications');
+          if (storedApps) {
+            const parsed = JSON.parse(storedApps);
+            if (Array.isArray(parsed)) {
+              setApplicationsList(parsed);
+              setApplicationsCount(parsed.length);
+            }
+          }
         }
-      }
+      }).catch(() => {});
 
       const storedProfile = localStorage.getItem('mandya_candidate_profile');
       if (storedProfile) {
@@ -102,11 +111,10 @@ export default function AdminReviewPage() {
         }
       }
 
-      const storedQueue = localStorage.getItem('mandya_moderation_queue');
-      if (storedQueue) {
-        const parsed = JSON.parse(storedQueue);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const formatted = parsed.map((j: JobDTO) => ({
+      // Fetch live moderation queue from API or storage
+      fetchModerationQueue().then((queue) => {
+        if (Array.isArray(queue) && queue.length > 0) {
+          const formatted = queue.map((j: JobDTO) => ({
             id: j.id,
             title: j.title,
             company: j.orgName,
@@ -118,13 +126,39 @@ export default function AdminReviewPage() {
                 : 'Verified employer • No red flags found',
             fullJob: j,
           }));
-          setPendingJobs([...formatted, ...INITIAL_PENDING_QUEUE.filter((q) => !parsed.some((p: any) => p.id === q.id))]);
+          setPendingJobs(formatted);
+        } else {
+          const storedQueue = localStorage.getItem('mandya_moderation_queue');
+          if (storedQueue) {
+            const parsed = JSON.parse(storedQueue);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const formatted = parsed.map((j: JobDTO) => ({
+                id: j.id,
+                title: j.title,
+                company: j.orgName,
+                locality: j.taluk,
+                flagged: Boolean(j.fraudAlerts && j.fraudAlerts.length > 0),
+                flagMessage:
+                  j.fraudAlerts && j.fraudAlerts.length > 0
+                    ? j.fraudAlerts[0]
+                    : 'Verified employer • No red flags found',
+                fullJob: j,
+              }));
+              setPendingJobs(formatted);
+            }
+          }
         }
-      }
+      }).catch(() => {});
     } catch {
       // Fallback
     }
   }, []);
+
+  const loadDemoQueue = () => {
+    setPendingJobs(DEMO_PENDING_QUEUE);
+    setToastMessage('Loaded sample moderation queue for testing.');
+    setTimeout(() => setToastMessage(''), 3000);
+  };
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,12 +185,14 @@ export default function AdminReviewPage() {
     setAdminPin('');
   };
 
-  const handleAction = (id: string, action: 'approved' | 'rejected') => {
+  const handleAction = async (id: string, action: 'approved' | 'rejected') => {
     const jobItem = pendingJobs.find((j) => j.id === id);
     const updatedQueue = pendingJobs.filter((j) => j.id !== id);
     setPendingJobs(updatedQueue);
 
     try {
+      await moderateJob(id, action === 'approved' ? 'APPROVE' : 'REJECT').catch(() => {});
+
       // Update moderation queue in localStorage
       const remainingFullJobs = updatedQueue.map((q) => q.fullJob).filter(Boolean);
       localStorage.setItem('mandya_moderation_queue', JSON.stringify(remainingFullJobs));
@@ -298,7 +334,7 @@ export default function AdminReviewPage() {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Profiles ({applicationsCount > 0 ? applicationsCount : 1})
+                Profiles ({profilesList.length})
               </button>
             </div>
 
@@ -370,8 +406,14 @@ export default function AdminReviewPage() {
               ))}
 
               {pendingJobs.length === 0 && (
-                <div className="text-center py-8 text-xs text-slate-400">
-                  All pending moderation reviews are complete!
+                <div className="text-center py-8 text-xs text-slate-400 space-y-3">
+                  <p>All pending moderation reviews are complete!</p>
+                  <button
+                    onClick={loadDemoQueue}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+                  >
+                    Load Sample Queue (Demo)
+                  </button>
                 </div>
               )}
             </div>

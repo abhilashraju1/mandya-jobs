@@ -29,6 +29,9 @@ export default function HomePage() {
   const [applySuccessMessage, setApplySuccessMessage] = useState('');
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedTaluk, setSelectedTaluk] = useState<string>('ALL');
+  const [locationMode, setLocationMode] = useState<'ALL' | 'SELECT' | 'NEAR_ME'>('ALL');
+  const [selectedEducation, setSelectedEducation] = useState<string>('ALL');
+  const [geoNotice, setGeoNotice] = useState<string>('');
   const [walkInOnly, setWalkInOnly] = useState<boolean>(false);
   const [candidateProfile, setCandidateProfile] = useState<any | null>(null);
   const [liveJobs, setLiveJobs] = useState<JobDTO[]>([]);
@@ -211,11 +214,23 @@ export default function HomePage() {
 
   const toggleSavedJob = (jobId: string) => {
     setSavedJobs((prev) => {
-      const next = { ...prev, [jobId]: !prev[jobId] };
+      const isCurrentlySaved = Boolean(prev[jobId]);
+      const next = { ...prev, [jobId]: !isCurrentlySaved };
       try {
-        const allJobs = liveJobs.length > 0 ? liveJobs : MANDYA_SEED_JOBS;
-        const savedList = allJobs.filter((j) => next[j.id]);
-        localStorage.setItem('mandya_saved_jobs', JSON.stringify(savedList));
+        const stored = JSON.parse(localStorage.getItem('mandya_saved_jobs') || '[]');
+        let updatedList: JobDTO[];
+        if (isCurrentlySaved) {
+          updatedList = stored.filter((j: any) => j.id !== jobId);
+        } else {
+          const targetJob = liveJobs.find((j) => j.id === jobId) || computedJobs.find((j) => j.id === jobId);
+          if (targetJob) {
+            const withoutCurrent = stored.filter((j: any) => j.id !== jobId);
+            updatedList = [targetJob, ...withoutCurrent];
+          } else {
+            updatedList = stored;
+          }
+        }
+        localStorage.setItem('mandya_saved_jobs', JSON.stringify(updatedList));
       } catch {
         // Storage fallback
       }
@@ -253,10 +268,20 @@ export default function HomePage() {
       return { ...job, match };
     });
 
-  // Filter jobs based on search term, taluk, and walk-in toggle
+  // Filter jobs based on search term, location mode, taluk, education, and walk-in toggle
   const filteredJobs = computedJobs.filter((job) => {
-    if (selectedTaluk !== 'ALL') {
+    if (locationMode === 'SELECT' && selectedTaluk !== 'ALL') {
       if (job.taluk.toLowerCase() !== selectedTaluk.toLowerCase()) return false;
+    } else if (locationMode === 'NEAR_ME') {
+      if (job.taluk !== 'Mandya Town') return false;
+    }
+    if (selectedEducation !== 'ALL') {
+      const jobEd = (job.minEducation || '').toLowerCase();
+      if (selectedEducation === 'No formal education required') {
+        if (!jobEd.includes('no formal') && !jobEd.includes('none') && jobEd !== '') return false;
+      } else if (!jobEd.includes(selectedEducation.toLowerCase())) {
+        return false;
+      }
     }
     if (walkInOnly && !job.isWalkIn) return false;
     if (searchTerm.trim()) {
@@ -279,33 +304,138 @@ export default function HomePage() {
         <div className="md:grid md:grid-cols-12 md:gap-8 items-start">
           {/* Desktop Left Sidebar (Filters, Taluks, Anti-Scam) */}
           <aside className="hidden md:block md:col-span-4 lg:col-span-3 space-y-5 sticky top-20">
-            {/* Taluk Filter Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-3">
-                {lang === 'kn' ? 'ತಾಲೂಕು (Taluk)' : 'Filter by Taluk'}
-              </h3>
+            {/* 3-Mode Location Control Card */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500">
+                  {lang === 'kn' ? 'ಸ್ಥಳ ಆಯ್ಕೆ' : 'Location Mode'}
+                </h3>
+                {(locationMode !== 'ALL' || selectedTaluk !== 'ALL') && (
+                  <button
+                    onClick={() => {
+                      setLocationMode('ALL');
+                      setSelectedTaluk('ALL');
+                      setGeoNotice('');
+                    }}
+                    className="text-[10px] text-blue-600 font-semibold hover:underline"
+                  >
+                    {lang === 'kn' ? 'ಮರುಹೊಂದಿಸಿ' : 'Clear'}
+                  </button>
+                )}
+              </div>
+
+              {/* Mode Toggle Buttons */}
+              <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl text-[10px] font-bold">
+                <button
+                  onClick={() => {
+                    setLocationMode('ALL');
+                    setSelectedTaluk('ALL');
+                    setGeoNotice('');
+                  }}
+                  className={`py-1.5 px-1 rounded-lg transition text-center ${
+                    locationMode === 'ALL' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {lang === 'kn' ? 'ಎಲ್ಲಾ' : 'All Mandya'}
+                </button>
+                <button
+                  onClick={() => setLocationMode('SELECT')}
+                  className={`py-1.5 px-1 rounded-lg transition text-center ${
+                    locationMode === 'SELECT' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {lang === 'kn' ? 'ತಾಲೂಕು' : 'Taluks'}
+                </button>
+                <button
+                  onClick={() => {
+                    setLocationMode('NEAR_ME');
+                    setGeoNotice(
+                      lang === 'kn'
+                        ? 'ಸಾಮೀಪ್ಯ: ಮಂಡ್ಯ ನಗರ (15 ಕಿ.ಮೀ ವ್ಯಾಪ್ತಿ)'
+                        : 'Near you: Mandya Town (~15km radius)'
+                    );
+                  }}
+                  className={`py-1.5 px-1 rounded-lg transition text-center ${
+                    locationMode === 'NEAR_ME' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {lang === 'kn' ? 'ಹತ್ತಿರದ' : 'Near Me'}
+                </button>
+              </div>
+
+              {geoNotice && (
+                <p className="text-[10px] text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg font-medium">
+                  📍 {geoNotice}
+                </p>
+              )}
+
+              {/* Taluk List (When SELECT mode is active) */}
+              {locationMode === 'SELECT' && (
+                <div className="space-y-1 pt-1 max-h-48 overflow-y-auto">
+                  {[
+                    { id: 'ALL', en: 'All 7 Taluks', kn: 'ಸಂಪೂರ್ಣ ಮಂಡ್ಯ ಜಿಲ್ಲೆ' },
+                    { id: 'Mandya Town', en: 'Mandya Town', kn: 'ಮಂಡ್ಯ ನಗರ' },
+                    { id: 'Maddur', en: 'Maddur', kn: 'ಮದ್ದೂರು' },
+                    { id: 'Malavalli', en: 'Malavalli', kn: 'ಮಳವಳ್ಳಿ' },
+                    { id: 'Srirangapatna', en: 'Srirangapatna', kn: 'ಶ್ರೀರಂಗಪಟ್ಟಣ' },
+                    { id: 'Pandavapura', en: 'Pandavapura', kn: 'ಪಾಂಡವಪುರ' },
+                    { id: 'Nagamangala', en: 'Nagamangala', kn: 'ನಾಗಮಂಗಲ' },
+                    { id: 'KR Pete', en: 'K.R. Pete', kn: 'ಕೆ.ಆರ್. ಪೇಟೆ' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTaluk(t.id)}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center justify-between ${
+                        selectedTaluk.toLowerCase() === t.id.toLowerCase()
+                          ? 'bg-blue-600 text-white font-bold shadow-xs'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>{lang === 'kn' ? t.kn : t.en}</span>
+                      {selectedTaluk.toLowerCase() === t.id.toLowerCase() && (
+                        <span className="text-xs">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Independent Minimum Education Filter */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500">
+                  {lang === 'kn' ? 'ವಿದ್ಯಾರ್ಹತೆ' : 'Education'}
+                </h3>
+                {selectedEducation !== 'ALL' && (
+                  <button
+                    onClick={() => setSelectedEducation('ALL')}
+                    className="text-[10px] text-blue-600 font-semibold hover:underline"
+                  >
+                    {lang === 'kn' ? 'ಮರುಹೊಂದಿಸಿ' : 'Clear'}
+                  </button>
+                )}
+              </div>
               <div className="space-y-1">
                 {[
-                  { id: 'ALL', en: 'All Mandya District', kn: 'ಸಂಪೂರ್ಣ ಮಂಡ್ಯ ಜಿಲ್ಲೆ' },
-                  { id: 'Mandya Town', en: 'Mandya Town', kn: 'ಮಂಡ್ಯ ನಗರ' },
-                  { id: 'Maddur', en: 'Maddur', kn: 'ಮದ್ದೂರು' },
-                  { id: 'Malavalli', en: 'Malavalli', kn: 'ಮಳವಳ್ಳಿ' },
-                  { id: 'Srirangapatna', en: 'Srirangapatna', kn: 'ಶ್ರೀರಂಗಪಟ್ಟಣ' },
-                  { id: 'Pandavapura', en: 'Pandavapura', kn: 'ಪಾಂಡವಪುರ' },
-                  { id: 'Nagamangala', en: 'Nagamangala', kn: 'ನಾಗಮಂಗಲ' },
-                  { id: 'KR Pete', en: 'K.R. Pete', kn: 'ಕೆ.ಆರ್. ಪೇಟೆ' },
-                ].map((t) => (
+                  { id: 'ALL', en: 'All Education Levels', kn: 'ಎಲ್ಲಾ ವಿದ್ಯಾರ್ಹತೆ' },
+                  { id: 'No formal education required', en: 'No formal education', kn: 'ಯಾವುದೇ ಔಪಚಾರಿಕ ಶಿಕ್ಷಣ ಬೇಡ' },
+                  { id: 'SSLC', en: 'SSLC / 10th', kn: 'ಎಸ್.ಎಸ್.ಎಲ್.ಸಿ / 10ನೇ' },
+                  { id: 'PUC', en: 'PUC / 12th', kn: 'ಪಿ.ಯು.ಸಿ / 12ನೇ' },
+                  { id: 'Diploma', en: 'Diploma', kn: 'ಡಿಪ್ಲೊಮಾ' },
+                  { id: 'Degree', en: 'Any Degree / Graduate', kn: 'ಯಾವುದೇ ಪದವಿ' },
+                ].map((ed) => (
                   <button
-                    key={t.id}
-                    onClick={() => setSelectedTaluk(t.id)}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition flex items-center justify-between ${
-                      selectedTaluk.toLowerCase() === t.id.toLowerCase()
+                    key={ed.id}
+                    onClick={() => setSelectedEducation(ed.id)}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center justify-between ${
+                      selectedEducation.toLowerCase() === ed.id.toLowerCase()
                         ? 'bg-blue-600 text-white font-bold shadow-xs'
                         : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <span>{lang === 'kn' ? t.kn : t.en}</span>
-                    {selectedTaluk.toLowerCase() === t.id.toLowerCase() && (
+                    <span>{lang === 'kn' ? ed.kn : ed.en}</span>
+                    {selectedEducation.toLowerCase() === ed.id.toLowerCase() && (
                       <span className="text-xs">✓</span>
                     )}
                   </button>
