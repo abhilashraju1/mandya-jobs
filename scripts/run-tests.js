@@ -143,12 +143,26 @@ const kannadaNurseCandidate = {
   totalExpYears: 1,
   taluk: 'Mandya Town',
 };
+const kannadaTranslitNurseCandidate = {
+  skills: ['nursing', 'patient care'],
+  educationLevel: 'ನರ್ಸಿಂಗ್ ಡಿಪ್ಲೊಮಾ',
+  totalExpYears: 1,
+  taluk: 'Mandya Town',
+};
+const kannadaShushrushaNurseCandidate = {
+  skills: ['nursing', 'patient care'],
+  educationLevel: 'ಶುಶ್ರೂಷ ಡಿಪ್ಲೊಮಾ',
+  totalExpYears: 1,
+  taluk: 'Mandya Town',
+};
 const nurseMatch = calculateJobMatch(nurseCandidate, nurseJob);
 const bcomMatch = calculateJobMatch(bcomCandidate, nurseJob);
 const mechMatch = calculateJobMatch(mechCandidate, nurseJob);
 const pharmacyMatch = calculateJobMatch(pharmacyCandidate, nurseJob);
 const dmltMatch = calculateJobMatch(dmltCandidate, nurseJob);
 const kannadaNurseMatch = calculateJobMatch(kannadaNurseCandidate, nurseJob);
+const kannadaTranslitMatch = calculateJobMatch(kannadaTranslitNurseCandidate, nurseJob);
+const kannadaShushrushaMatch = calculateJobMatch(kannadaShushrushaNurseCandidate, nurseJob);
 
 assert(
   nurseMatch.score > bcomMatch.score,
@@ -171,8 +185,16 @@ assert(
   `Scenario D3: Allied medical Pharmacy (${pharmacyMatch.score}%) outranks unrelated Mechanical (${mechMatch.score}%)`
 );
 assert(
-  kannadaNurseMatch.score === nurseMatch.score,
-  `Scenario D4: Kannada Nursing credential alias matches English score (${kannadaNurseMatch.score}% === ${nurseMatch.score}%)`
+  kannadaNurseMatch.score === 96,
+  `Scenario D4: Kannada Nursing GNM matches exact nursing score (${kannadaNurseMatch.score}% === 96%)`
+);
+assert(
+  kannadaTranslitMatch.score === 96,
+  `Scenario D5: Kannada transliteration "ನರ್ಸಿಂಗ್ ಡಿಪ್ಲೊಮಾ" matches exact nursing score (${kannadaTranslitMatch.score}% === 96%)`
+);
+assert(
+  kannadaShushrushaMatch.score === 96,
+  `Scenario D5: Kannada canonical "ಶುಶ್ರೂಷ ಡಿಪ್ಲೊಮಾ" matches exact nursing score (${kannadaShushrushaMatch.score}% === 96%)`
 );
 assert(
   mechMatch.score <= 81,

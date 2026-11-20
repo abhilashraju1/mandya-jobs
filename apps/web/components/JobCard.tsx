@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { JobDTO } from '@mandya-jobs/types';
-import { MapPin, Calendar, CheckCircle2, Bookmark } from 'lucide-react';
+import { MapPin, Calendar, CheckCircle2, Bookmark, ExternalLink } from 'lucide-react';
 
 export interface JobCardProps {
   job: JobDTO;
@@ -104,25 +105,57 @@ export function JobCard({
         </p>
       )}
 
-      {/* Action CTA */}
-      <div className="pt-2">
-        <button
-          onClick={() => onApply(job)}
-          disabled={isApplied}
-          className={`w-full py-2.5 px-4 rounded-xl font-semibold text-sm transition shadow-sm ${
-            isApplied
-              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-[0.99]'
-          }`}
+      {/* Action CTA with Route Awareness */}
+      <div className="pt-2 flex items-center gap-2">
+        <Link
+          href={`/jobs/${job.id}`}
+          className="flex-1 py-2 px-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-semibold text-xs text-center transition"
         >
-          {isApplied
-            ? currentLang === 'kn'
-              ? 'ಅರ್ಜಿ ಸಲ್ಲಿಸಲಾಗಿದೆ'
-              : 'Applied'
-            : currentLang === 'kn'
-            ? 'ಅರ್ಜಿ ಸಲ್ಲಿಸಿ (Apply)'
-            : 'Apply'}
-        </button>
+          {currentLang === 'kn' ? 'ವಿವರಗಳು' : 'Details'}
+        </Link>
+        {job.applicationRoute === 'EXTERNAL_URL' && job.externalApplicationUrl ? (
+          <a
+            href={job.externalApplicationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs text-center transition shadow-xs flex items-center justify-center gap-1"
+          >
+            <span>{currentLang === 'kn' ? 'ವೆಬ್‌ಸೈಟ್' : 'Apply Link'}</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        ) : job.applicationRoute === 'PHONE_CALL' && job.contactPhone ? (
+          <a
+            href={`tel:${job.contactPhone}`}
+            className="flex-1 py-2 px-3 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-semibold text-xs text-center transition shadow-xs"
+          >
+            {currentLang === 'kn' ? 'ಕರೆ ಮಾಡಿ' : 'Call Employer'}
+          </a>
+        ) : job.applicationRoute === 'WALK_IN' ? (
+          <Link
+            href={`/jobs/${job.id}`}
+            className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-xs text-center transition shadow-xs"
+          >
+            {currentLang === 'kn' ? 'ನೇರ ಸಂದರ್ಶನ' : 'Walk-in'}
+          </Link>
+        ) : (
+          <button
+            onClick={() => onApply(job)}
+            disabled={isApplied}
+            className={`flex-1 py-2 px-3 rounded-xl font-semibold text-xs transition shadow-xs ${
+              isApplied
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-[0.99]'
+            }`}
+          >
+            {isApplied
+              ? currentLang === 'kn'
+                ? 'ಅರ್ಜಿ ಸಲ್ಲಿಸಲಾಗಿದೆ'
+                : 'Applied'
+              : currentLang === 'kn'
+              ? 'ಅರ್ಜಿ ಸಲ್ಲಿಸಿ'
+              : 'Apply'}
+          </button>
+        )}
       </div>
     </div>
   );

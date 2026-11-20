@@ -39,6 +39,10 @@ const jobsService = new JobsService();
 const appService = new ApplicationsService();
 const resumeService = new ResumeService();
 
+// Step 0: Clean startup verification & explicit seeding
+assertE2E(jobsService.getAllPublished().length === 0, 'Clean startup begins with 0 operational vacancies by default');
+jobsService.seedJobs();
+
 // Step 1: Browse published vacancies
 const publicJobs = jobsService.getAllPublished();
 assertE2E(publicJobs.length >= 8, `Public directory has ${publicJobs.length} active approved vacancies`);
@@ -191,7 +195,7 @@ const updatedPublicJobs = jobsService.getAllPublished();
 assertE2E(updatedPublicJobs.some((j) => j.id === newWizardJob.id), 'Approved job is immediately discoverable in public search');
 
 // Step 3: Moderator inspects flagged scam job
-const scamJob = jobsService.getById('job_scam_test');
+const scamJob = jobsService.getById('job_scam_test', true);
 assertE2E(scamJob.fraudAlerts.length > 0, 'Scam job automatically displays fraud warning banners');
 assertE2E(scamJob.fraudAlerts[0].includes('registration fee'), 'Fraud scanner highlighted forbidden recruitment fee violation');
 

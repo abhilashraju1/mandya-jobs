@@ -30,8 +30,8 @@ export function OfflineBanner({ lang = 'en' }: { lang?: 'en' | 'kn' }) {
       <WifiOff className="w-4 h-4 animate-pulse" />
       <span>
         {lang === 'kn'
-          ? 'ನೀವು ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿದ್ದೀರಿ. ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕ ಬಂದಾಗ ನಿಮ್ಮ ಅರ್ಜಿಗಳು ಸಿಂಕ್ ಆಗುತ್ತವೆ.'
-          : 'You are currently offline. New applications will sync when your connection returns.'}
+          ? 'ನೀವು ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿದ್ದೀರಿ. ಉಳಿಸಿದ ಉದ್ಯೋಗಗಳನ್ನು ಬ್ರೌಸ್ ಮಾಡಬಹುದು. ಹೊಸ ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕ ಅಗತ್ಯವಿದೆ.'
+          : 'You are currently offline. You can browse cached jobs. Internet connection is required to apply or submit vacancies.'}
       </span>
     </div>
   );

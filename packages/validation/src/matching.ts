@@ -13,6 +13,7 @@ export interface MatchingJobInput {
   requiredSkills: string[];
   preferredSkills?: string[];
   minEducation?: string;
+  specificCredential?: string;
   minExpYears: number;
   taluk: string;
   salaryMin?: number;
@@ -77,7 +78,12 @@ export function calculateJobMatch(
       jobEd.includes('anm') ||
       jobEd.includes('ಶುಶ್ರೂಷ') ||
       jobEd.includes('ದಾದಿ') ||
-      (job.title && (job.title.toLowerCase().includes('nurs') || job.title.includes('ಶುಶ್ರೂಷ')));
+      jobEd.includes('ನರ್ಸಿಂಗ್') ||
+      (job.title &&
+        (job.title.toLowerCase().includes('nurs') ||
+          job.title.includes('ಶುಶ್ರೂಷ') ||
+          job.title.includes('ದಾದಿ') ||
+          job.title.includes('ನರ್ಸಿಂಗ್')));
 
     const isPharmacyJob =
       jobEd.includes('pharm') ||
@@ -115,7 +121,12 @@ export function calculateJobMatch(
         candEd.includes('anm') ||
         candEd.includes('ಶುಶ್ರೂಷ') ||
         candEd.includes('ದಾದಿ') ||
-        (candEd.includes('diploma') && candEd.includes('nurs'));
+        candEd.includes('ನರ್ಸಿಂಗ್') ||
+        (candEd.includes('diploma') &&
+          (candEd.includes('nurs') ||
+            candEd.includes('ಶುಶ್ರೂಷ') ||
+            candEd.includes('ದಾದಿ') ||
+            candEd.includes('ನರ್ಸಿಂಗ್')));
 
       const isAlliedMedical =
         candEd.includes('pharm') ||

@@ -49,11 +49,19 @@ export async function runLiveHttpE2ESuite() {
     assertHttp(healthData.features.matchingEngine === 'deterministic-v1.2', 'Uses deterministic-v1.2 matching engine');
 
     // -------------------------------------------------------------------------
-    // TEST 2: Public Job Discovery
+    // TEST 2: Public Job Discovery & Clean Startup Verification
     // -------------------------------------------------------------------------
     console.log('\n🔍 SUITE 2: Public Job Discovery & Filtering');
+    const cleanJobsRes = await fetch(`${BASE_URL}/jobs`);
+    assertHttp(cleanJobsRes.status === 200, 'GET /api/v1/jobs returns HTTP 200');
+    const cleanJobs = await cleanJobsRes.json();
+    assertHttp(Array.isArray(cleanJobs) && cleanJobs.length === 0, 'Clean initial startup returns exactly 0 operational vacancies by default');
+
+    // Seed verified vacancies explicitly
+    const seedRes = await fetch(`${BASE_URL}/jobs/seed`, { method: 'POST' });
+    assertHttp(seedRes.status === 201 || seedRes.status === 200, 'POST /api/v1/jobs/seed succeeds');
+
     const initialJobsRes = await fetch(`${BASE_URL}/jobs`);
-    assertHttp(initialJobsRes.status === 200, 'GET /api/v1/jobs returns HTTP 200');
     const initialJobs = await initialJobsRes.json();
     assertHttp(Array.isArray(initialJobs), 'Returns array of published vacancies');
     assertHttp(initialJobs.length >= 8, `Found ${initialJobs.length} active verified vacancies in Mandya`);

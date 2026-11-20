@@ -38,6 +38,8 @@ export default function EmployerPostJobPage() {
   const [submittedJobId, setSubmittedJobId] = useState('');
   const [submissionRef, setSubmissionRef] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const fillSampleData = () => {
     setBusinessName('Sri Lakshmi Showroom');
@@ -95,9 +97,10 @@ export default function EmployerPostJobPage() {
       minEducation,
       specificCredential: specificCredential || undefined,
       applicationRoute,
+      externalApplicationUrl: applicationRoute === 'EXTERNAL_URL' ? externalAppUrl : undefined,
       openings: 1,
       description,
-      benefits: ['Provident Fund', 'Incentives'],
+      benefits: [],
       requiredSkills: skillsList,
       preferredSkills: [],
       isWalkIn: isWalkIn || applicationRoute === 'WALK_IN',
@@ -109,28 +112,36 @@ export default function EmployerPostJobPage() {
       fraudAlerts: fraudCheck.flags,
     };
 
-    let serverJobId = `job_${Date.now()}`;
-    let serverRef = `REF-MDY-${Math.floor(100000 + Math.random() * 900000)}`;
+    setIsSubmitting(true);
+    setSubmitError('');
 
     try {
       const created = await createJobDraft(jobPayload);
-      if (created?.id) {
-        serverJobId = created.id;
-        serverRef = created.submissionRef || serverRef;
-        await submitJobForReview(created.id);
+      if (!created || !created.id) {
+        throw new Error('Server returned an invalid draft response');
       }
+      const submittedJob = await submitJobForReview(created.id);
+      const serverJobId = submittedJob?.id || created.id;
+      const serverRef = submittedJob?.submissionRef || created.submissionRef || `REF-MDY-${Date.now().toString().slice(-6)}`;
+
       const existingQueue = JSON.parse(localStorage.getItem('mandya_moderation_queue') || '[]');
       localStorage.setItem(
         'mandya_moderation_queue',
         JSON.stringify([{ ...jobPayload, id: serverJobId, submissionRef: serverRef }, ...existingQueue])
       );
-    } catch (err) {
-      console.debug('API submit error:', err);
-    }
 
-    setSubmittedJobId(serverJobId);
-    setSubmissionRef(serverRef);
-    setSubmitted(true);
+      setSubmittedJobId(serverJobId);
+      setSubmissionRef(serverRef);
+      setSubmitted(true);
+    } catch (err: any) {
+      setSubmitError(
+        lang === 'kn'
+          ? 'ಸರ್ವರ್ ಸಂಪರ್ಕ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'
+          : (err.message || 'Submission failed. Please check network and try again.')
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -447,6 +458,22 @@ export default function EmployerPostJobPage() {
                 </div>
               )}
 
+              {applicationRoute === 'EXTERNAL_URL' && (
+                <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-xl">
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    {lang === 'kn' ? 'ಬಾಹ್ಯ ಅರ್ಜಿ ಲಿಂಕ್ (URL)' : 'Application URL'}
+                  </label>
+                  <input
+                    type="url"
+                    value={externalAppUrl}
+                    onChange={(e) => setExternalAppUrl(e.target.value)}
+                    placeholder="https://company.com/careers/apply"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-600 focus:outline-none bg-white"
+                    required
+                  />
+                </div>
+              )}
+
               {/* Anti-Scam & Accuracy Acknowledgement */}
               <div className="pt-2">
                 <label className="flex items-start gap-2.5 cursor-pointer">
@@ -465,14 +492,21 @@ export default function EmployerPostJobPage() {
                 </label>
               </div>
 
+              {submitError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{submitError}</span>
+                </div>
+              )}
+
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={!agreedAntiFee}
+                  disabled={!agreedAntiFee || isSubmitting}
                   className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl transition shadow-md shadow-blue-500/20 active:scale-[0.99] flex items-center justify-center gap-2"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{lang === 'kn' ? 'ಪರಿಶೀಲನೆಗೆ ಸಲ್ಲಿಸಿ' : 'Submit for review'}</span>
+                  <span>{isSubmitting ? (lang === 'kn' ? 'ಸಲ್ಲಿಸಲಾಗುತ್ತಿದೆ...' : 'Submitting...') : (lang === 'kn' ? 'ಪರಿಶೀಲನೆಗೆ ಸಲ್ಲಿಸಿ' : 'Submit for review')}</span>
                 </button>
               </div>
             </form>

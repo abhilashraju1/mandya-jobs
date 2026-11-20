@@ -349,11 +349,30 @@ export default function HomePage() {
                 <button
                   onClick={() => {
                     setLocationMode('NEAR_ME');
-                    setGeoNotice(
-                      lang === 'kn'
-                        ? 'ಸಾಮೀಪ್ಯ: ಮಂಡ್ಯ ನಗರ (15 ಕಿ.ಮೀ ವ್ಯಾಪ್ತಿ)'
-                        : 'Near you: Mandya Town (~15km radius)'
-                    );
+                    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setGeoNotice(
+                            lang === 'kn'
+                              ? `ಸಾಮೀಪ್ಯ: ನಿಮ್ಮ ಲೊಕೇಶನ್ (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}) - ಮಂಡ್ಯ ನಗರ`
+                              : `Nearby: Your location (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}) ~15km`
+                          );
+                        },
+                        () => {
+                          setGeoNotice(
+                            lang === 'kn'
+                              ? 'ಸಾಮೀಪ್ಯ: ಮಂಡ್ಯ ನಗರ (15 ಕಿ.ಮೀ ವ್ಯಾಪ್ತಿ)'
+                              : 'Near you: Mandya Town (~15km radius)'
+                          );
+                        }
+                      );
+                    } else {
+                      setGeoNotice(
+                        lang === 'kn'
+                          ? 'ಸಾಮೀಪ್ಯ: ಮಂಡ್ಯ ನಗರ (15 ಕಿ.ಮೀ ವ್ಯಾಪ್ತಿ)'
+                          : 'Near you: Mandya Town (~15km radius)'
+                      );
+                    }
                   }}
                   className={`py-1.5 px-1 rounded-lg transition text-center ${
                     locationMode === 'NEAR_ME' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
@@ -712,7 +731,7 @@ export default function HomePage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredJobs.map((job) => (
                   <JobCard
                     key={job.id}

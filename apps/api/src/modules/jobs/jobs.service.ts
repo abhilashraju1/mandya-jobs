@@ -8,7 +8,12 @@ export class JobsService {
   private nextId = 100;
 
   constructor() {
-    this.seedInitialJobs();
+    this.jobs = [];
+  }
+
+  private toPublicProjection(job: JobDTO): JobDTO {
+    const { posterContactName, posterContactPhone, posterContactEmail, ...publicJob } = job;
+    return publicJob as JobDTO;
   }
 
   resetJobs(): { count: number; message: string } {
@@ -80,14 +85,20 @@ export class JobsService {
           }
         );
       }
-      return { ...job, match };
+      return this.toPublicProjection({ ...job, match });
     });
   }
 
-  getById(id: string): JobDTO {
+  getById(id: string, isPrivileged = false): JobDTO {
     const job = this.jobs.find((j) => j.id === id);
     if (!job) {
       throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+    if (!isPrivileged) {
+      if (job.status !== JobStatus.PUBLISHED || !job.orgVerified) {
+        throw new NotFoundException(`Job with ID ${id} not found or not published`);
+      }
+      return this.toPublicProjection(job);
     }
     return job;
   }
@@ -110,18 +121,19 @@ export class JobsService {
       workMode: data.workMode || WorkMode.ON_SITE,
       taluk: data.taluk || 'Mandya Town',
       addressDisplay: data.addressDisplay || 'Mandya, Karnataka',
-      salaryMin: data.salaryMin || 15000,
-      salaryMax: data.salaryMax || 20000,
+      salaryMin: data.salaryMin,
+      salaryMax: data.salaryMax,
       salaryPeriod: data.salaryPeriod || SalaryPeriod.MONTHLY,
       isNegotiable: data.isNegotiable || false,
       minExpYears: data.minExpYears || 0,
       minEducation: data.minEducation || 'PUC',
       specificCredential: data.specificCredential,
       applicationRoute: data.applicationRoute,
+      externalApplicationUrl: data.externalApplicationUrl,
       posterContactName: data.posterContactName,
       openings: data.openings || 1,
       description: data.description || '',
-      benefits: data.benefits || ['Provident Fund', 'Incentives'],
+      benefits: data.benefits || [],
       requiredSkills: data.requiredSkills || ['Customer Service'],
       preferredSkills: data.preferredSkills || [],
       isWalkIn: data.isWalkIn || false,
@@ -139,7 +151,7 @@ export class JobsService {
   }
 
   submitForReview(id: string): JobDTO {
-    const job = this.getById(id);
+    const job = this.getById(id, true);
     job.status = JobStatus.SUBMITTED;
 
     const fraudCheck = detectJobFraud({
@@ -162,11 +174,11 @@ export class JobsService {
 
   moderateJob(
     id: string,
-    action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES',
+    action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES' | 'VERIFY_EMPLOYER',
     reason?: string,
     reviewerId: string = 'mod_admin'
   ): JobDTO {
-    const job = this.getById(id);
+    const job = this.getById(id, true);
     job.moderationHistory = job.moderationHistory || [];
     job.moderationHistory.push({
       reviewerId,
@@ -175,8 +187,12 @@ export class JobsService {
       timestamp: new Date().toISOString(),
     });
 
-    if (action === 'APPROVE') {
+    if (action === 'VERIFY_EMPLOYER') {
       job.orgVerified = true;
+      job.contactVerified = true;
+    } else if (action === 'APPROVE') {
+      job.orgVerified = true;
+      job.contactVerified = true;
       job.status = JobStatus.PUBLISHED;
     } else if (action === 'REJECT') {
       job.status = JobStatus.REJECTED;

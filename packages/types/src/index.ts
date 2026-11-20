@@ -169,7 +169,10 @@ export interface JobDTO {
   submissionRef?: string;
   isGuestSubmission?: boolean;
   posterContactName?: string;
+  posterContactPhone?: string;
+  posterContactEmail?: string;
   applicationRoute?: string;
+  externalApplicationUrl?: string;
   specificCredential?: string;
   contactVerified?: boolean;
 }
