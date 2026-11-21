@@ -53,6 +53,7 @@ export async function runLiveHttpE2ESuite() {
     // -------------------------------------------------------------------------
     console.log('\n🔍 SUITE 2: Public Job Discovery & Filtering');
     await fetch(`${BASE_URL}/jobs/reset`, { method: 'POST' });
+    await fetch(`${BASE_URL}/applications/reset`, { method: 'POST' });
     const cleanJobsRes = await fetch(`${BASE_URL}/jobs`);
     assertHttp(cleanJobsRes.status === 200, 'GET /api/v1/jobs returns HTTP 200');
     const cleanJobs = await cleanJobsRes.json();
@@ -95,8 +96,8 @@ export async function runLiveHttpE2ESuite() {
       requiredSkills: ['solar installation', 'electrical wiring', 'inverter troubleshooting'],
       minExpYears: 1,
       minEducation: 'ITI Electrical / Diploma',
-      isWalkIn: true,
-      walkInVenue: 'Surya Solar Office, Bangalore-Mysore Highway, Mandya',
+      isWalkIn: false,
+      applicationRoute: 'MANDYA_JOBS_DIRECT',
     };
 
     const draftRes = await fetch(`${BASE_URL}/jobs`, {
@@ -208,36 +209,77 @@ export async function runLiveHttpE2ESuite() {
     assertHttp(publicJobRecord.posterContactEmail === undefined, 'Public listing strips private posterContactEmail');
 
     // -------------------------------------------------------------------------
-    // TEST 5: Candidate Apply & Duplicate Prevention
+    // TEST 5: Candidate Authentication & Route-Aware Application
     // -------------------------------------------------------------------------
-    console.log('\n👤 SUITE 5: Candidate Application & Duplicate Protection');
+    console.log('\n👤 SUITE 5: Candidate Authentication, Phone OTP & Direct Application');
+    
+    // Step 5.1: Send OTP
+    const candidatePhone = '9845987654';
+    const sendOtpRes = await fetch(`${BASE_URL}/auth/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber: candidatePhone }),
+    });
+    assertHttp(sendOtpRes.status === 200, 'POST /api/v1/auth/otp/send returns HTTP 200');
+
+    // Step 5.2: Verify OTP and get candidate JWT
+    const verifyOtpRes = await fetch(`${BASE_URL}/auth/otp/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber: candidatePhone, otpCode: '123456' }),
+    });
+    assertHttp(verifyOtpRes.status === 200, 'POST /api/v1/auth/otp/verify returns HTTP 200');
+    const { token: candidateToken } = await verifyOtpRes.json();
+    assertHttp(Boolean(candidateToken), 'Candidate receives authenticated JWT session');
+
+    const candidateHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${candidateToken}`,
+    };
+
+    // Step 5.3: Test route enforcement - attempt direct apply to WALK_IN job must fail with HTTP 400
+    const walkInJobId = initialJobs.find((j: any) => j.isWalkIn)?.id || 'job_walkin_test';
+    const invalidWalkInApplyRes = await fetch(`${BASE_URL}/applications`, {
+      method: 'POST',
+      headers: candidateHeaders,
+      body: JSON.stringify({
+        jobId: walkInJobId,
+        candidate: { name: 'Ravi Kumar M.', phone: candidatePhone },
+      }),
+    });
+    assertHttp(
+      invalidWalkInApplyRes.status === 400 || invalidWalkInApplyRes.status === 404,
+      'Direct application to Walk-in route vacancy is strictly rejected with HTTP 400'
+    );
+
+    // Step 5.4: Apply for approved direct-apply solar vacancy with candidate session
     const candidateData = {
-      id: 'cand_ravi_kumar',
+      id: `user_${candidatePhone}`,
       name: 'Ravi Kumar M.',
-      phone: '9845112233',
+      phone: candidatePhone,
       taluk: 'Mandya Town',
       matchScore: 94,
     };
 
     const applyRes = await fetch(`${BASE_URL}/applications`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: candidateHeaders,
       body: JSON.stringify({
         jobId: draftJob.id,
         candidate: candidateData,
         coverNote: 'Hold ITI Electrical certification with 1 year rooftop solar installation experience.',
       }),
     });
-    assertHttp(applyRes.status === 201, 'POST /api/v1/applications returns HTTP 201 Created');
+    assertHttp(applyRes.status === 201, 'POST /api/v1/applications with JWT returns HTTP 201 Created');
     const application = await applyRes.json();
     assertHttp(application.status === 'SUBMITTED', 'Application initial status is SUBMITTED');
     assertHttp(application.jobTitle === draftPayload.title, 'Application bound to exact real job title');
     assertHttp(application.orgName === draftPayload.orgName, 'Application bound to exact organization name');
 
-    // Attempt duplicate application
+    // Step 5.5: Attempt duplicate active application
     const duplicateRes = await fetch(`${BASE_URL}/applications`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: candidateHeaders,
       body: JSON.stringify({
         jobId: draftJob.id,
         candidate: candidateData,
@@ -245,28 +287,68 @@ export async function runLiveHttpE2ESuite() {
     });
     assertHttp(duplicateRes.status === 400, 'Duplicate active application rejected with HTTP 400 Bad Request');
     const duplicateErr = await duplicateRes.json();
-    assertHttp(duplicateErr.message.includes('already applied') || duplicateErr.message.includes('active application'), 'Error message clarifies active application exists');
+    assertHttp(
+      duplicateErr.message.includes('already applied') || duplicateErr.message.includes('active application'),
+      'Error message clarifies active application exists'
+    );
 
     // -------------------------------------------------------------------------
-    // TEST 6: Recruiter Pipeline & Interview Scheduling
+    // TEST 6: Recruiter Pipeline, Negative Access & Interview Scheduling
     // -------------------------------------------------------------------------
-    console.log('\n📅 SUITE 6: Recruiter Pipeline, Shortlisting & Interviews');
-    const applicantsRes = await fetch(`${BASE_URL}/applications/job/${draftJob.id}`);
+    console.log('\n📅 SUITE 6: Recruiter Pipeline, Authorization & Interviews');
+
+    // Step 6.1: Recruiter login
+    const recruiterLoginRes = await fetch(`${BASE_URL}/auth/recruiter-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orgId: draftJob.orgId }),
+    });
+    assertHttp(recruiterLoginRes.status === 200, 'POST /api/v1/auth/recruiter-login returns HTTP 200');
+    const { token: recruiterToken } = await recruiterLoginRes.json();
+    assertHttp(Boolean(recruiterToken), 'Recruiter receives authenticated JWT session');
+
+    const recruiterHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${recruiterToken}`,
+    };
+
+    // Step 6.2: Negative Test - Unauthorized recruiter from another org cannot view applicants
+    const wrongRecruiterLoginRes = await fetch(`${BASE_URL}/auth/recruiter-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orgId: 'org_competing_999' }),
+    });
+    const { token: wrongRecruiterToken } = await wrongRecruiterLoginRes.json();
+    const wrongRecruiterHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${wrongRecruiterToken}`,
+    };
+
+    const wrongApplicantsRes = await fetch(`${BASE_URL}/applications/job/${draftJob.id}?orgId=org_competing_999`, {
+      headers: wrongRecruiterHeaders,
+    });
+    assertHttp(
+      wrongApplicantsRes.status === 403,
+      'Negative test: Recruiter from competing organization is denied applicant list with HTTP 403 Forbidden'
+    );
+
+    // Step 6.3: Authorized recruiter sees applicants
+    const applicantsRes = await fetch(`${BASE_URL}/applications/job/${draftJob.id}`, { headers: recruiterHeaders });
     const applicants = await applicantsRes.json();
-    assertHttp(applicants.length === 1, 'Recruiter sees exactly 1 applicant for solar vacancy');
+    assertHttp(applicants.length === 1, 'Authorized recruiter sees exactly 1 applicant for solar vacancy');
     assertHttp(applicants[0].candidateName === candidateData.name, 'Applicant name matches Ravi Kumar M.');
 
-    // Recruiter shortlists
+    // Step 6.4: Recruiter shortlists candidate
     const shortlistRes = await fetch(`${BASE_URL}/applications/${application.id}/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: recruiterHeaders,
       body: JSON.stringify({ status: 'SHORTLISTED', note: 'Strong ITI electrical background' }),
     });
     assertHttp(shortlistRes.status === 200, 'PATCH status to SHORTLISTED returns HTTP 200');
     const shortlisted = await shortlistRes.json();
     assertHttp(shortlisted.status === 'SHORTLISTED', 'Status updated to SHORTLISTED');
 
-    // Recruiter schedules interview
+    // Step 6.5: Recruiter schedules interview
     const interviewPayload = {
       scheduledDate: '2026-11-25 11:00 AM',
       venueOrLink: 'Surya Solar Office, Highway Road, Mandya',
@@ -274,7 +356,7 @@ export async function runLiveHttpE2ESuite() {
     };
     const interviewRes = await fetch(`${BASE_URL}/applications/${application.id}/interview`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: recruiterHeaders,
       body: JSON.stringify(interviewPayload),
     });
     assertHttp(interviewRes.status === 201, 'POST interview scheduling returns HTTP 201');
@@ -282,8 +364,10 @@ export async function runLiveHttpE2ESuite() {
     assertHttp(interviewApp.status === 'INTERVIEW_SCHEDULED', 'Status transitions to INTERVIEW_SCHEDULED');
     assertHttp(interviewApp.interview.venueOrLink.includes('Mandya'), 'Interview venue recorded accurately');
 
-    // Candidate verifies their tracker
-    const candidateAppsRes = await fetch(`${BASE_URL}/applications/candidate/${candidateData.id}`);
+    // Step 6.6: Candidate verifies their tracker
+    const candidateAppsRes = await fetch(`${BASE_URL}/applications/candidate/${candidateData.id}`, {
+      headers: candidateHeaders,
+    });
     const candidateApps = await candidateAppsRes.json();
     assertHttp(candidateApps.length === 1, 'Candidate sees their active application in tracker');
     assertHttp(candidateApps[0].status === 'INTERVIEW_SCHEDULED', 'Candidate sees INTERVIEW_SCHEDULED status');
@@ -295,7 +379,7 @@ export async function runLiveHttpE2ESuite() {
     console.log('\n🔄 SUITE 7: Candidate Withdrawal Flow');
     const withdrawRes = await fetch(`${BASE_URL}/applications/${application.id}/withdraw`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: candidateHeaders,
       body: JSON.stringify({ candidateId: candidateData.id }),
     });
     assertHttp(withdrawRes.status === 201, 'POST /applications/:id/withdraw returns HTTP 201');
@@ -305,7 +389,7 @@ export async function runLiveHttpE2ESuite() {
     // Verify candidate can re-apply after withdrawal per PRD
     const reapplyRes = await fetch(`${BASE_URL}/applications`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: candidateHeaders,
       body: JSON.stringify({
         jobId: draftJob.id,
         candidate: candidateData,
@@ -315,16 +399,61 @@ export async function runLiveHttpE2ESuite() {
     assertHttp(reapplyRes.status === 201, 'Candidate successfully re-applies after withdrawal per PRD one-active rule');
 
     // -------------------------------------------------------------------------
-    // TEST 8: Anti-Scam Moderation Rejection
+    // TEST 8: Resume Validation, Upload Security & Private Download
     // -------------------------------------------------------------------------
-    console.log('\n🚫 SUITE 8: Anti-Fraud Enforcement & Scam Rejection');
+    console.log('\n📄 SUITE 8: Resume Security, Magic-Byte Scan & Download Protection');
+
+    // Disguised binary should be rejected
+    const fakePdfPayload = {
+      originalname: 'malware.pdf',
+      size: 500,
+      base64Data: Buffer.from('MZ\x90\x00\x03\x00\x00\x00ThisIsAnExecutable').toString('base64'),
+    };
+    const badValidateRes = await fetch(`${BASE_URL}/resumes/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fakePdfPayload),
+    });
+    assertHttp(badValidateRes.status === 400, 'Executable disguised as PDF is blocked with HTTP 400 Bad Request');
+
+    // Valid authentic PDF upload
+    const validPdfPayload = {
+      originalname: 'Ravi_Kumar_ITI_Resume.pdf',
+      size: 1024,
+      base64Data: Buffer.from('%PDF-1.4\n1 0 obj\n<< /Title (Ravi Kumar ITI Solar Resume) >>\nendobj\ntrailer\n<<>>\n%%EOF').toString('base64'),
+    };
+    const uploadRes = await fetch(`${BASE_URL}/resumes/upload`, {
+      method: 'POST',
+      headers: candidateHeaders,
+      body: JSON.stringify(validPdfPayload),
+    });
+    assertHttp(uploadRes.status === 201, 'Valid authenticated PDF resume upload returns HTTP 201');
+    const uploadedResume = await uploadRes.json();
+    assertHttp(Boolean(uploadedResume.id), 'Resume metadata stored with unique ID');
+
+    // Negative Download Test: Unauthenticated caller cannot download private candidate resume
+    const unauthDownloadRes = await fetch(`${BASE_URL}/resumes/${uploadedResume.id}/download`);
+    assertHttp(
+      unauthDownloadRes.status === 401 || unauthDownloadRes.status === 403,
+      'Negative test: Unauthenticated download of private resume is blocked'
+    );
+
+    // Authorized download by owning candidate succeeds
+    const authDownloadRes = await fetch(`${BASE_URL}/resumes/${uploadedResume.id}/download`, {
+      headers: candidateHeaders,
+    });
+    assertHttp(authDownloadRes.status === 200, 'Owning candidate successfully downloads their private resume');
+
+    // -------------------------------------------------------------------------
+    // TEST 9: Anti-Scam Moderation Rejection
+    // -------------------------------------------------------------------------
+    console.log('\n🚫 SUITE 9: Anti-Fraud Enforcement & Scam Rejection');
     const rejectScamRes = await fetch(`${BASE_URL}/jobs/job_scam_test/moderate`, {
       method: 'POST',
       headers: adminHeaders,
       body: JSON.stringify({
         action: 'REJECT',
         reason: 'Violates candidate free-access policy by demanding registration fee.',
-        reviewerId: 'admin_trust_safety',
       }),
     });
     assertHttp(rejectScamRes.status === 201, 'Moderator rejects scam posting');

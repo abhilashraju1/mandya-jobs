@@ -41,6 +41,18 @@ export class AuthController {
     return this.authService.adminLogin(passcode);
   }
 
+  @Post('recruiter-login')
+  @HttpCode(HttpStatus.OK)
+  async recruiterLogin(@Body('orgId') orgId?: string, @Body('recruiterId') recruiterId?: string) {
+    return this.authService.recruiterLogin(orgId || 'org_1', recruiterId);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout() {
+    return { success: true, message: 'Logged out successfully' };
+  }
+
   @Get('me')
   async getMe(@Headers('authorization') authHeader?: string) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

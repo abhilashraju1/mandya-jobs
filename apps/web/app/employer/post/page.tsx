@@ -29,6 +29,8 @@ export default function EmployerPostJobPage() {
   const [description, setDescription] = useState('');
   const [contactPersonName, setContactPersonName] = useState('');
   const [contactInfo, setContactInfo] = useState('');
+  const [publicContactPhone, setPublicContactPhone] = useState('');
+  const [consentPublicPhone, setConsentPublicPhone] = useState(false);
   const [applicationRoute, setApplicationRoute] = useState<'WALK_IN' | 'PHONE_CALL' | 'EXTERNAL_URL' | 'MANDYA_JOBS_DIRECT'>('WALK_IN');
   const [externalAppUrl, setExternalAppUrl] = useState('');
   const [isWalkIn, setIsWalkIn] = useState(false);
@@ -59,6 +61,8 @@ export default function EmployerPostJobPage() {
     setDescription('Handle counter billing, POS operations, and customer queries.');
     setContactPersonName('Ramesh Kumar');
     setContactInfo('9845012345');
+    setPublicContactPhone('9845099887');
+    setConsentPublicPhone(true);
     setApplicationRoute('WALK_IN');
     setIsWalkIn(true);
     setWalkInVenue('Sri Lakshmi Showroom, 2nd Floor, VV Road, Mandya');
@@ -106,7 +110,7 @@ export default function EmployerPostJobPage() {
       isWalkIn: isWalkIn || applicationRoute === 'WALK_IN',
       walkInVenue: isWalkIn || applicationRoute === 'WALK_IN' ? walkInVenue : undefined,
       walkInTimings: isWalkIn || applicationRoute === 'WALK_IN' ? walkInTimings : undefined,
-      contactPhone: applicationRoute === 'PHONE_CALL' ? contactInfo : undefined,
+      contactPhone: applicationRoute === 'PHONE_CALL' ? publicContactPhone : undefined,
       posterContactName: contactPersonName,
       posterContactPhone: contactInfo,
       status: JobStatus.SUBMITTED,
@@ -123,7 +127,11 @@ export default function EmployerPostJobPage() {
       }
       const submittedJob = await submitJobForReview(created.id);
       const serverJobId = submittedJob?.id || created.id;
-      const serverRef = submittedJob?.submissionRef || created.submissionRef || `REF-MDY-${Date.now().toString().slice(-6)}`;
+      const serverRef = submittedJob?.submissionRef || created.submissionRef;
+
+      if (!serverRef) {
+        throw new Error('Server did not return a durable submission reference');
+      }
 
       setSubmittedJobId(serverJobId);
       setSubmissionRef(serverRef);
@@ -469,6 +477,41 @@ export default function EmployerPostJobPage() {
                 </div>
               )}
 
+              {applicationRoute === 'PHONE_CALL' && (
+                <div className="p-3 bg-teal-50/50 border border-teal-200 rounded-xl space-y-2">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      {lang === 'kn' ? 'ಸಾರ್ವಜನಿಕ ಕರೆ ಸಂಖ್ಯೆ (ಉದ್ಯೋಗಾಕಾಂಕ್ಷಿಗಳಿಗೆ ಕಾಣಿಸುತ್ತದೆ)' : 'Public Candidate Calling Number (Shown to Job Seekers)'}
+                    </label>
+                    <input
+                      type="tel"
+                      value={publicContactPhone}
+                      onChange={(e) => setPublicContactPhone(e.target.value)}
+                      placeholder="e.g. 9845012345"
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-600 focus:outline-none bg-white"
+                      required
+                    />
+                  </div>
+                  <label className="flex items-start gap-2 cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={consentPublicPhone}
+                      onChange={(e) => setConsentPublicPhone(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                      required
+                    />
+                    <span className="text-[11px] text-teal-900 leading-tight">
+                      {lang === 'kn'
+                        ? 'ಈ ಸಂಖ್ಯೆಯನ್ನು ಸಾರ್ವಜನಿಕವಾಗಿ ಪ್ರಕಟಿಸಲು ನಾನು ಸಮ್ಮತಿಸುತ್ತೇನೆ. ಅಭ್ಯರ್ಥಿಗಳು ನೇರವಾಗಿ ಕರೆ ಮಾಡಬಹುದು.'
+                        : 'I explicitly consent to publish this phone number publicly on the job card for candidates to call or WhatsApp.'}
+                    </span>
+                  </label>
+                  <div className="p-2 bg-white/80 rounded-lg border border-teal-200/60 text-[11px] text-slate-600">
+                    <span className="font-bold text-slate-800">Candidate View Preview:</span> Candidates will see a direct <span className="font-semibold text-teal-700">&quot;Call Employer&quot;</span> button dialing <span className="font-mono font-bold text-slate-900">{publicContactPhone || '(enter phone above)'}</span>.
+                  </div>
+                </div>
+              )}
+
               {/* Anti-Scam & Accuracy Acknowledgement */}
               <div className="pt-2">
                 <label className="flex items-start gap-2.5 cursor-pointer">
@@ -497,7 +540,7 @@ export default function EmployerPostJobPage() {
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={!agreedAntiFee || isSubmitting}
+                  disabled={!agreedAntiFee || isSubmitting || (applicationRoute === 'PHONE_CALL' && !consentPublicPhone)}
                   className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl transition shadow-md shadow-blue-500/20 active:scale-[0.99] flex items-center justify-center gap-2"
                 >
                   <Send className="w-3.5 h-3.5" />

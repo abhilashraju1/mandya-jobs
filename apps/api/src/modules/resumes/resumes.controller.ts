@@ -1,9 +1,14 @@
-import { Controller, Post, Get, Param, Body, Query, Res, Response } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Query, Res, Headers, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ResumeService } from './resume.service';
+import { AuthService } from '../auth/auth.service';
+import { RoleType } from '@mandya-jobs/types';
 
 @Controller('resumes')
 export class ResumesController {
-  constructor(private readonly resumeService: ResumeService) {}
+  constructor(
+    private readonly resumeService: ResumeService,
+    private readonly authService: AuthService
+  ) {}
 
   @Post('extract')
   extractFromText(@Body() body: { text: string }) {
@@ -23,6 +28,7 @@ export class ResumesController {
 
   @Post('upload')
   uploadResume(
+    @Headers() headers: Record<string, any>,
     @Body()
     body: {
       originalname: string;
@@ -32,19 +38,44 @@ export class ResumesController {
       candidateId?: string;
     }
   ) {
+    let candidateId = body.candidateId || 'cand_1';
+    try {
+      const user = this.authService.extractUserFromHeaders(headers);
+      candidateId = user.sub || user.id || candidateId;
+    } catch (err) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new UnauthorizedException('Authentication required to upload resume');
+      }
+    }
+
     const buffer = Buffer.from(body.base64Data, 'base64');
     return this.resumeService.uploadFile({
       buffer,
       originalname: body.originalname,
       size: body.size,
       mimetype: body.mimetype,
-      candidateId: body.candidateId || 'cand_guest',
+      candidateId,
     });
   }
 
   @Get(':id/download')
-  downloadFile(@Param('id') id: string, @Res() res: any) {
+  downloadFile(@Headers() headers: Record<string, any>, @Param('id') id: string, @Res() res: any) {
     const { buffer, meta } = this.resumeService.getResumeFile(id);
+
+    try {
+      const user = this.authService.extractUserFromHeaders(headers);
+      const isOwner = (user.sub || user.id) === meta.candidateId;
+      const isPrivileged = user.roles?.some((r: RoleType) =>
+        [RoleType.SUPER_ADMIN, RoleType.MODERATOR, RoleType.EMPLOYER_RECRUITER].includes(r)
+      );
+      if (!isOwner && !isPrivileged) {
+        throw new ForbiddenException('Not authorized to access this candidate resume');
+      }
+    } catch (err: any) {
+      if (err instanceof ForbiddenException) throw err;
+      throw new UnauthorizedException('Authentication required to download resume');
+    }
+
     const contentType =
       meta.fileType === 'pdf'
         ? 'application/pdf'

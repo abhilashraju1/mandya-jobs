@@ -96,6 +96,7 @@ export class ApplicationsService {
   ): ApplicationDTO {
     let jobTitle = 'Job Vacancy';
     let orgName = 'Verified Employer';
+    let orgId = 'org_1';
 
     if (this.jobsService) {
       try {
@@ -106,8 +107,19 @@ export class ApplicationsService {
         if (!realJob.orgVerified) {
           throw new BadRequestException('Cannot apply to an unverified employer vacancy');
         }
+        if (
+          realJob.isWalkIn ||
+          realJob.applicationRoute === 'WALK_IN' ||
+          realJob.applicationRoute === 'PHONE_CALL' ||
+          realJob.applicationRoute === 'EXTERNAL_URL'
+        ) {
+          throw new BadRequestException(
+            `Cannot submit direct application for ${realJob.applicationRoute || 'WALK_IN'} vacancy. Please use designated route.`
+          );
+        }
         jobTitle = realJob.title;
         orgName = realJob.orgName;
+        orgId = realJob.orgId || orgId;
       } catch (err: any) {
         if (err instanceof BadRequestException) throw err;
         throw new NotFoundException(`Vacancy with ID ${jobId} does not exist`);
@@ -127,6 +139,7 @@ export class ApplicationsService {
       jobId,
       jobTitle,
       orgName,
+      orgId,
       candidateId: candidate.id,
       candidateName: candidate.name,
       candidatePhone: candidate.phone,
@@ -152,6 +165,10 @@ export class ApplicationsService {
 
   getByCandidate(candidateId: string): ApplicationDTO[] {
     return this.applications.filter((a) => a.candidateId === candidateId);
+  }
+
+  getByOrg(orgId: string): ApplicationDTO[] {
+    return this.applications.filter((a) => a.orgId === orgId);
   }
 
   getByJob(jobId: string, requesterOrgId?: string): ApplicationDTO[] {

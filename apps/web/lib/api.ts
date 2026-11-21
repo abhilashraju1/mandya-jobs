@@ -6,11 +6,20 @@ function getAdminHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (typeof window !== 'undefined') {
     const adminToken = localStorage.getItem('mandya_admin_token');
-    const adminKey = localStorage.getItem('mandya_admin_pin') || '9999';
     if (adminToken) {
       headers['Authorization'] = `Bearer ${adminToken}`;
     }
-    headers['x-admin-key'] = adminKey;
+  }
+  return headers;
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('mandya_auth_token') || localStorage.getItem('mandya_admin_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
   }
   return headers;
 }
@@ -156,9 +165,10 @@ export async function submitApplication(payload: {
   candidate: { id: string; name: string; phone: string; taluk?: string; matchScore?: number; resumeUrl?: string };
   coverNote?: string;
 }): Promise<ApplicationDTO> {
+  const headers = getAuthHeaders();
   const res = await fetch(`${API_BASE}/applications`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -170,10 +180,11 @@ export async function submitApplication(payload: {
 
 export async function fetchApplications(candidateId?: string): Promise<ApplicationDTO[]> {
   try {
+    const headers = getAuthHeaders();
     const url = candidateId
       ? `${API_BASE}/applications/candidate/${candidateId}`
       : `${API_BASE}/applications`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, { cache: 'no-store', headers });
     if (!res.ok) return [];
     return await res.json();
   } catch {
@@ -182,9 +193,10 @@ export async function fetchApplications(candidateId?: string): Promise<Applicati
 }
 
 export async function withdrawApplication(appId: string, candidateId: string): Promise<ApplicationDTO> {
+  const headers = getAuthHeaders();
   const res = await fetch(`${API_BASE}/applications/${appId}/withdraw`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ candidateId }),
   });
   if (!res.ok) {
@@ -201,9 +213,10 @@ export async function uploadResumeFile(fileMeta: {
   mimetype?: string;
   candidateId?: string;
 }) {
+  const headers = getAuthHeaders();
   const res = await fetch(`${API_BASE}/resumes/upload`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(fileMeta),
   });
   if (!res.ok) {
@@ -214,9 +227,10 @@ export async function uploadResumeFile(fileMeta: {
 }
 
 export async function saveCandidateProfile(profileData: any) {
+  const headers = getAuthHeaders();
   const res = await fetch(`${API_BASE}/candidate/profile`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(profileData),
   });
   if (!res.ok) {
@@ -228,7 +242,8 @@ export async function saveCandidateProfile(profileData: any) {
 
 export async function fetchCandidateProfile(candidateId: string) {
   try {
-    const res = await fetch(`${API_BASE}/candidate/profile/${candidateId}`, { cache: 'no-store' });
+    const headers = getAuthHeaders();
+    const res = await fetch(`${API_BASE}/candidate/profile/${candidateId}`, { cache: 'no-store', headers });
     if (!res.ok) return null;
     return await res.json();
   } catch {

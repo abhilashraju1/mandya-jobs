@@ -102,7 +102,10 @@ export class JobsService {
   }
 
   seedJobs(): { count: number; message: string } {
-    this.jobs = JSON.parse(JSON.stringify(MANDYA_SEED_JOBS));
+    this.jobs = JSON.parse(JSON.stringify(MANDYA_SEED_JOBS)).map((job: any) => ({
+      ...job,
+      applicationRoute: job.applicationRoute || (job.isWalkIn ? 'WALK_IN' : 'MANDYA_JOBS_DIRECT'),
+    }));
     this.saveToDisk();
     return { count: this.jobs.length, message: `Seeded ${this.jobs.length} verified jobs` };
   }
@@ -204,14 +207,18 @@ export class JobsService {
 
   createDraft(data: Partial<JobDTO>): JobDTO {
     if (data.applicationRoute === 'EXTERNAL_URL' && data.externalApplicationUrl) {
-      const url = data.externalApplicationUrl;
-      if (!/^https?:\/\//i.test(url)) {
+      try {
+        const parsed = new URL(data.externalApplicationUrl);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          throw new Error();
+        }
+      } catch {
         throw new BadRequestException('A valid web application URL starting with http:// or https:// is required.');
       }
     }
 
     const id = `job_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const submissionRef = `REF-MDY-${Date.now().toString().slice(-6)}`;
+    const submissionRef = `REF-MDY-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
     // Fraud alerts detection on text if present
     const fraudAlerts = [...(data.fraudAlerts || [])];
@@ -259,7 +266,7 @@ export class JobsService {
       posterContactName: data.posterContactName,
       posterContactPhone: data.posterContactPhone,
       posterContactEmail: data.posterContactEmail,
-      status: JobStatus.DRAFT,
+      status: data.status || JobStatus.DRAFT,
       submissionRef,
       fraudAlerts,
       moderationHistory: [
@@ -283,7 +290,29 @@ export class JobsService {
     if (!job) {
       throw new NotFoundException(`Job with ID ${id} not found`);
     }
+
+    // Idempotent retry: if already submitted, return the existing record with its server ref
+    if (job.status === JobStatus.SUBMITTED && job.submissionRef) {
+      return job;
+    }
+
+    // Validate route specifics before submission
+    if (job.applicationRoute === 'EXTERNAL_URL' && !job.externalApplicationUrl) {
+      throw new BadRequestException('External application URL is required for external vacancy');
+    }
+
+    if (job.applicationRoute === 'WALK_IN' && !job.walkInVenue) {
+      throw new BadRequestException('Walk-in interview venue is required for walk-in vacancy');
+    }
+
+    if (job.applicationRoute === 'PHONE_CALL' && !job.contactPhone) {
+      throw new BadRequestException('Public calling phone number is required for phone-call vacancy');
+    }
+
     job.status = JobStatus.SUBMITTED;
+    if (!job.submissionRef) {
+      job.submissionRef = `REF-MDY-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    }
     job.moderationHistory = job.moderationHistory || [];
     job.moderationHistory.push({
       reviewerId: 'guest_poster',

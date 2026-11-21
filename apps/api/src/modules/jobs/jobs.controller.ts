@@ -19,35 +19,16 @@ export class JobsController {
     private readonly authService: AuthService
   ) {}
 
-  private isAuthorizedAdmin(headers: Record<string, any>): boolean {
-    const adminKey = headers['x-admin-key'];
-    if (adminKey === '9999' || adminKey === 'admin123') {
-      return true;
+  private getAdminUser(headers: Record<string, any>): any {
+    const user = this.authService.extractUserFromHeaders(headers);
+    if (
+      !user ||
+      !user.roles ||
+      (!user.roles.includes(RoleType.SUPER_ADMIN) && !user.roles.includes(RoleType.MODERATOR))
+    ) {
+      throw new UnauthorizedException('Admin moderation privileges required');
     }
-
-    const authHeader = headers['authorization'];
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      try {
-        const decoded = this.authService.validateToken(token);
-        if (
-          decoded &&
-          decoded.roles &&
-          (decoded.roles.includes(RoleType.SUPER_ADMIN) || decoded.roles.includes(RoleType.MODERATOR))
-        ) {
-          return true;
-        }
-      } catch {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  private assertAdminAuth(headers: Record<string, any>) {
-    if (!this.isAuthorizedAdmin(headers)) {
-      throw new UnauthorizedException('Admin authorization required for this action');
-    }
+    return user;
   }
 
   @Get()
@@ -57,14 +38,15 @@ export class JobsController {
 
   @Get('moderation/queue')
   getModerationQueue(@Headers() headers: Record<string, any>, @Query('status') status?: JobStatus) {
-    this.assertAdminAuth(headers);
+    this.getAdminUser(headers);
     return this.jobsService.getModerationQueue(status);
   }
 
   @Post('reset')
   resetJobs(@Headers() headers: Record<string, any>) {
+    // Only authorized testing or admin session can reset
     if (process.env.NODE_ENV === 'production') {
-      this.assertAdminAuth(headers);
+      this.getAdminUser(headers);
     }
     return this.jobsService.resetJobs();
   }
@@ -72,14 +54,26 @@ export class JobsController {
   @Post('seed')
   seedJobs(@Headers() headers: Record<string, any>) {
     if (process.env.NODE_ENV === 'production') {
-      this.assertAdminAuth(headers);
+      this.getAdminUser(headers);
     }
     return this.jobsService.seedJobs();
   }
 
   @Get(':id')
   getById(@Param('id') id: string, @Headers() headers: Record<string, any>) {
-    const isPrivileged = this.isAuthorizedAdmin(headers);
+    let isPrivileged = false;
+    try {
+      const user = this.authService.extractUserFromHeaders(headers);
+      if (
+        user &&
+        user.roles &&
+        (user.roles.includes(RoleType.SUPER_ADMIN) || user.roles.includes(RoleType.MODERATOR))
+      ) {
+        isPrivileged = true;
+      }
+    } catch {
+      isPrivileged = false;
+    }
     return this.jobsService.getById(id, isPrivileged);
   }
 
@@ -94,9 +88,9 @@ export class JobsController {
   }
 
   @Post(':id/verify-employer')
-  verifyEmployer(@Param('id') id: string, @Headers() headers: Record<string, any>, @Body() body?: { reviewerId?: string }) {
-    this.assertAdminAuth(headers);
-    return this.jobsService.verifyEmployer(id, body?.reviewerId || 'admin_moderator');
+  verifyEmployer(@Param('id') id: string, @Headers() headers: Record<string, any>) {
+    const admin = this.getAdminUser(headers);
+    return this.jobsService.verifyEmployer(id, admin.sub || admin.id || 'admin_officer_mandya');
   }
 
   @Post(':id/moderate')
@@ -107,10 +101,9 @@ export class JobsController {
     body: {
       action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES' | 'VERIFY_EMPLOYER' | 'CLOSE';
       reason?: string;
-      reviewerId?: string;
     }
   ) {
-    this.assertAdminAuth(headers);
-    return this.jobsService.moderateJob(id, body.action, body.reason, body.reviewerId);
+    const admin = this.getAdminUser(headers);
+    return this.jobsService.moderateJob(id, body.action, body.reason, admin.sub || admin.id || 'admin_officer_mandya');
   }
 }

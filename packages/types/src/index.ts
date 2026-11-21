@@ -181,6 +181,7 @@ export interface ApplicationDTO {
   id: string;
   jobId: string;
   jobTitle: string;
+  orgId?: string;
   orgName: string;
   candidateId: string;
   candidateName: string;

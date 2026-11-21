@@ -41,7 +41,7 @@ export async function runBrowserAcceptance() {
     console.log('📦 JOURNEY A: Clean Start, Empty States & Public Browsing');
 
     // Reset API state to ensure truthful empty start
-    const resetRes = await fetch(`${API_URL}/jobs/reset`, { method: 'POST', headers: { 'x-admin-key': '9999' } });
+    const resetRes = await fetch(`${API_URL}/jobs/reset`, { method: 'POST' });
     await fetch(`${API_URL}/applications/reset`, { method: 'POST' });
 
     const anonContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -57,7 +57,7 @@ export async function runBrowserAcceptance() {
     );
 
     // Seed 10 verified Mandya vacancies explicitly
-    const seedRes = await fetch(`${API_URL}/jobs/seed`, { method: 'POST', headers: { 'x-admin-key': '9999' } });
+    const seedRes = await fetch(`${API_URL}/jobs/seed`, { method: 'POST' });
     assertBrowser(seedRes.ok, 'Seeded verified vacancies into database');
 
     await anonPage.reload({ waitUntil: 'networkidle' });
