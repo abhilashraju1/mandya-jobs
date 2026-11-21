@@ -15,6 +15,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import Link from 'next/link';
+import { uploadResumeFile, saveCandidateProfile } from '../../../lib/api';
 
 export default function CandidateProfilePage() {
   const { lang, toggleLanguage } = useLanguage();
@@ -84,11 +85,10 @@ export default function CandidateProfilePage() {
     setSkills(skills.filter((s) => s !== skillToRemove));
   };
 
-  const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResumeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check size limit: 5MB
     if (file.size > 5 * 1024 * 1024) {
       setResumeNotice(
         lang === 'kn'
@@ -99,20 +99,48 @@ export default function CandidateProfilePage() {
       return;
     }
 
-    setResumeName(file.name);
-    setResumeNotice(
-      lang === 'kn'
-        ? `"${file.name}" ಸುರಕ್ಷಿತವಾಗಿ ಅಪ್‌ಲೋಡ್ ಮಾಡಲಾಗಿದೆ ಮತ್ತು ಮ್ಯಾಜಿಕ್-ಬೈಟ್ ದೃಢೀಕರಿಸಲಾಗಿದೆ.`
-        : `"${file.name}" uploaded safely and verified by signature scan.`
-    );
-    setTimeout(() => setResumeNotice(''), 4000);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = (reader.result as string).split(',')[1];
+          const storedUser = JSON.parse(localStorage.getItem('mandya_user') || '{}');
+          const candidateId = storedUser.id || `cand_${Date.now()}`;
+
+          const res = await uploadResumeFile({
+            originalname: file.name,
+            size: file.size,
+            base64Data,
+            mimetype: file.type,
+            candidateId,
+          });
+
+          setResumeName(res.originalName);
+          setResumeNotice(
+            lang === 'kn'
+              ? `"${res.originalName}" ಸರ್ವರ್‌ನಲ್ಲಿ ಸುರಕ್ಷಿತವಾಗಿ ಅಪ್‌ಲೋಡ್ ಮಾಡಲಾಗಿದೆ ಮತ್ತು ಮ್ಯಾಜಿಕ್-ಬೈಟ್ ದೃಢೀಕರಿಸಲಾಗಿದೆ.`
+              : `"${res.originalName}" uploaded safely and confirmed by server quarantine scan.`
+          );
+          setTimeout(() => setResumeNotice(''), 4000);
+        } catch (err: any) {
+          setResumeNotice(err.message || 'File upload failed');
+          setTimeout(() => setResumeNotice(''), 4000);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setResumeNotice(err.message || 'Failed to read file');
+    }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const storedUser = JSON.parse(localStorage.getItem('mandya_user') || '{}');
+    const candidateId = storedUser.id || `cand_${phone.replace(/\D/g, '') || Date.now()}`;
+
     const profileData = {
-      id: 'cand_1',
+      id: candidateId,
       fullName,
       name: fullName,
       phone,
@@ -120,7 +148,7 @@ export default function CandidateProfilePage() {
       education,
       educationLevel: education,
       experience,
-      totalExpYears: 2,
+      totalExpYears: experience.toLowerCase().includes('fresher') ? 0 : 1,
       skills,
       resumeName,
       expectedSalary: 18000,
@@ -128,16 +156,21 @@ export default function CandidateProfilePage() {
     };
 
     try {
+      await saveCandidateProfile(profileData);
       localStorage.setItem('mandya_candidate_profile', JSON.stringify(profileData));
+      setSaveToast(
+        lang === 'kn'
+          ? 'ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಕೌಶಲ್ಯಗಳು ಸರ್ವರ್‌ನಲ್ಲಿ ಯಶಸ್ವಿಯಾಗಿ ಉಳಿಸಲ್ಪಟ್ಟಿವೆ!'
+          : 'Profile and matching criteria saved to server successfully!'
+      );
     } catch {
-      // Fallback
+      localStorage.setItem('mandya_candidate_profile', JSON.stringify(profileData));
+      setSaveToast(
+        lang === 'kn'
+          ? 'ಪ್ರೊಫೈಲ್ ಉಳಿಸಲಾಗಿದೆ (ಆಫ್‌ಲೈನ್ ಮೋಡ್)'
+          : 'Profile saved locally'
+      );
     }
-
-    setSaveToast(
-      lang === 'kn'
-        ? 'ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಕೌಶಲ್ಯಗಳು ಯಶಸ್ವಿಯಾಗಿ ಉಳಿಸಲ್ಪಟ್ಟಿವೆ!'
-        : 'Profile and matching criteria updated successfully!'
-    );
     setTimeout(() => setSaveToast(''), 3500);
   };
 

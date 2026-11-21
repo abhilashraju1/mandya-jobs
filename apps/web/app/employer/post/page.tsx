@@ -106,8 +106,9 @@ export default function EmployerPostJobPage() {
       isWalkIn: isWalkIn || applicationRoute === 'WALK_IN',
       walkInVenue: isWalkIn || applicationRoute === 'WALK_IN' ? walkInVenue : undefined,
       walkInTimings: isWalkIn || applicationRoute === 'WALK_IN' ? walkInTimings : undefined,
-      contactPhone: contactInfo,
+      contactPhone: applicationRoute === 'PHONE_CALL' ? contactInfo : undefined,
       posterContactName: contactPersonName,
+      posterContactPhone: contactInfo,
       status: JobStatus.SUBMITTED,
       fraudAlerts: fraudCheck.flags,
     };
@@ -123,12 +124,6 @@ export default function EmployerPostJobPage() {
       const submittedJob = await submitJobForReview(created.id);
       const serverJobId = submittedJob?.id || created.id;
       const serverRef = submittedJob?.submissionRef || created.submissionRef || `REF-MDY-${Date.now().toString().slice(-6)}`;
-
-      const existingQueue = JSON.parse(localStorage.getItem('mandya_moderation_queue') || '[]');
-      localStorage.setItem(
-        'mandya_moderation_queue',
-        JSON.stringify([{ ...jobPayload, id: serverJobId, submissionRef: serverRef }, ...existingQueue])
-      );
 
       setSubmittedJobId(serverJobId);
       setSubmissionRef(serverRef);

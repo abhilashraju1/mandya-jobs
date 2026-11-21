@@ -6,6 +6,7 @@ import { OfflineBanner } from '../../components/OfflineBanner';
 import { Phone, KeyRound, CheckCircle2, ShieldCheck, ArrowRight, RotateCw, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '../../context/LanguageContext';
+import { sendOtp, verifyOtp, adminLogin } from '../../lib/api';
 
 export default function LoginPage() {
   const { lang, toggleLanguage } = useLanguage();
@@ -30,7 +31,7 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, [isTimerActive, countdown]);
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     const clean = phone.replace(/[\s-+]/g, '');
@@ -43,32 +44,39 @@ export default function LoginPage() {
       return;
     }
 
-    setStep('otp');
-    setCountdown(300);
-    setIsTimerActive(true);
-    setOtp('123456'); // Pre-fill development mock OTP for 1-click verification
-    setSuccessToast(
-      lang === 'kn'
-        ? 'OTP ಯಶಸ್ವಿಯಾಗಿ ಕಳುಹಿಸಲಾಗಿದೆ (ಡೆಮೊ ಕೋಡ್: 123456)'
-        : 'OTP sent successfully (Demo code: 123456)'
-    );
-    setTimeout(() => setSuccessToast(''), 4000);
+    try {
+      await sendOtp(clean);
+      setStep('otp');
+      setCountdown(300);
+      setIsTimerActive(true);
+      setOtp('123456');
+      setSuccessToast(
+        lang === 'kn'
+          ? 'OTP ಯಶಸ್ವಿಯಾಗಿ ಕಳುಹಿಸಲಾಗಿದೆ (ಡೆಮೊ ಕೋಡ್: 123456)'
+          : 'OTP sent successfully (Demo code: 123456)'
+      );
+      setTimeout(() => setSuccessToast(''), 4000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to send OTP');
+    }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-    if (otp !== '123456' && otp.length !== 6) {
-      setErrorMessage(
-        lang === 'kn' ? 'ತಪ್ಪಾದ OTP ಕೋಡ್. ದಯವಿಟ್ಟು 123456 ನಮೂದಿಸಿ' : 'Invalid OTP. Please enter 123456'
-      );
-      return;
-    }
+    const clean = phone.replace(/[\s-+]/g, '');
 
-    setIsLoggedIn(true);
-    setSuccessToast(
-      lang === 'kn' ? 'ಲಾಗಿನ್ ಯಶಸ್ವಿಯಾಗಿದೆ! ಮರುನಿರ್ದೇಶಿಸಲಾಗುತ್ತಿದೆ...' : 'Signed in successfully! Redirecting...'
-    );
+    try {
+      const res = await verifyOtp(clean, otp);
+      localStorage.setItem('mandya_auth_token', res.token);
+      localStorage.setItem('mandya_user', JSON.stringify(res.user));
+      setIsLoggedIn(true);
+      setSuccessToast(
+        lang === 'kn' ? 'ಲಾಗಿನ್ ಯಶಸ್ವಿಯಾಗಿದೆ! ಮರುನಿರ್ದೇಶಿಸಲಾಗುತ್ತಿದೆ...' : 'Signed in successfully! Redirecting...'
+      );
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Invalid OTP. Please enter valid code');
+    }
   };
 
   const formatTime = (seconds: number) => {

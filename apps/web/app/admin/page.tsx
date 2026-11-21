@@ -3,224 +3,99 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '../../components/Navbar';
 import { OfflineBanner } from '../../components/OfflineBanner';
-import { Check, X, AlertTriangle, FileText, CheckCircle2, User, Building2, Sparkles } from 'lucide-react';
-import { JobDTO, JobStatus } from '@mandya-jobs/types';
+import { Check, X, AlertTriangle, FileText, CheckCircle2, ShieldCheck, Phone, Mail, Building2, User } from 'lucide-react';
+import { JobDTO } from '@mandya-jobs/types';
 import { useLanguage } from '../../context/LanguageContext';
-import { moderateJob, fetchModerationQueue, fetchApplications } from '../../lib/api';
-
-const DEMO_PENDING_QUEUE: any[] = [
-  {
-    id: 'job_pending_1',
-    title: 'Garment Sales Associate',
-    company: 'Mandya Silks & Sarees',
-    locality: 'VV Road · Mandya Town',
-    flagged: false,
-    flagMessage: 'Verified employer • No red flags found',
-    fullJob: {
-      id: 'job_pending_1',
-      orgId: 'org_silks',
-      orgName: 'Mandya Silks & Sarees',
-      orgBusinessType: 'Showroom',
-      orgVerified: true,
-      categoryId: 'showrooms',
-      categoryName: 'Showrooms',
-      title: 'Garment Sales Associate',
-      employmentType: 'FULL_TIME',
-      workMode: 'ON_SITE',
-      taluk: 'Mandya Town',
-      addressDisplay: 'VV Road, Mandya Town',
-      salaryMin: 14000,
-      salaryMax: 18000,
-      salaryPeriod: 'MONTHLY',
-      isNegotiable: true,
-      minExpYears: 1,
-      minEducation: 'PUC',
-      openings: 3,
-      description: 'Assist retail customers, showcase silk sarees, and manage counter inventory.',
-      benefits: ['PF', 'Incentives'],
-      requiredSkills: ['sales', 'customer service', 'kannada'],
-      preferredSkills: ['english'],
-      isWalkIn: true,
-      walkInVenue: 'Mandya Silks showroom counter',
-      contactPhone: '9845999888',
-      status: 'SUBMITTED',
-      createdAt: new Date().toISOString(),
-    },
-  },
-  {
-    id: 'job_scam_test',
-    title: 'Data Entry Work From Home',
-    company: 'QuickEarn Services',
-    locality: 'Online / Other',
-    flagged: true,
-    flagMessage: 'Flagged: "registration fee" (illegal recruitment fee violation)',
-    fullJob: {
-      id: 'job_scam_test',
-      orgId: 'org_unverified',
-      orgName: 'QuickEarn Services',
-      orgBusinessType: 'Other',
-      orgVerified: false,
-      title: 'Data Entry Work From Home',
-      taluk: 'Mandya Town',
-      status: 'SUBMITTED',
-      fraudAlerts: ['Flagged: "registration fee" (recruitment fee violation)'],
-    },
-  },
-];
+import { adminLogin, moderateJob, verifyEmployer, fetchModerationQueue, fetchApplications } from '../../lib/api';
 
 export default function AdminReviewPage() {
   const { lang, toggleLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'pending' | 'applications' | 'profiles'>('pending');
-  const [pendingJobs, setPendingJobs] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'pending' | 'applications'>('pending');
+  const [pendingJobs, setPendingJobs] = useState<JobDTO[]>([]);
   const [toastMessage, setToastMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
-  const [adminPin, setAdminPin] = useState('');
+  const [adminPin, setAdminPin] = useState('9999');
   const [pinError, setPinError] = useState('');
-  const [applicationsCount, setApplicationsCount] = useState(0);
   const [applicationsList, setApplicationsList] = useState<any[]>([]);
-  const [profilesList, setProfilesList] = useState<any[]>([]);
 
-  // Check admin session and load dynamic data on mount
-  useEffect(() => {
+  const loadQueue = async () => {
     try {
-      const isAuth = localStorage.getItem('mandya_admin_auth') === 'true';
-      setIsAdminAuthenticated(isAuth);
-
-      // Load live applications from API or storage
-      fetchApplications().then((apps) => {
-        if (Array.isArray(apps) && apps.length > 0) {
-          setApplicationsList(apps);
-          setApplicationsCount(apps.length);
-        } else {
-          const storedApps = localStorage.getItem('mandya_applications');
-          if (storedApps) {
-            const parsed = JSON.parse(storedApps);
-            if (Array.isArray(parsed)) {
-              setApplicationsList(parsed);
-              setApplicationsCount(parsed.length);
-            }
-          }
-        }
-      }).catch(() => {});
-
-      const storedProfile = localStorage.getItem('mandya_candidate_profile');
-      if (storedProfile) {
-        const parsed = JSON.parse(storedProfile);
-        if (parsed.fullName || parsed.name) {
-          setProfilesList([parsed]);
-        }
-      }
-
-      // Fetch live moderation queue from API or storage
-      fetchModerationQueue().then((queue) => {
-        if (Array.isArray(queue) && queue.length > 0) {
-          const formatted = queue.map((j: JobDTO) => ({
-            id: j.id,
-            title: j.title,
-            company: j.orgName,
-            locality: j.taluk,
-            flagged: Boolean(j.fraudAlerts && j.fraudAlerts.length > 0),
-            flagMessage:
-              j.fraudAlerts && j.fraudAlerts.length > 0
-                ? j.fraudAlerts[0]
-                : 'Verified employer • No red flags found',
-            fullJob: j,
-          }));
-          setPendingJobs(formatted);
-        } else {
-          const storedQueue = localStorage.getItem('mandya_moderation_queue');
-          if (storedQueue) {
-            const parsed = JSON.parse(storedQueue);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const formatted = parsed.map((j: JobDTO) => ({
-                id: j.id,
-                title: j.title,
-                company: j.orgName,
-                locality: j.taluk,
-                flagged: Boolean(j.fraudAlerts && j.fraudAlerts.length > 0),
-                flagMessage:
-                  j.fraudAlerts && j.fraudAlerts.length > 0
-                    ? j.fraudAlerts[0]
-                    : 'Verified employer • No red flags found',
-                fullJob: j,
-              }));
-              setPendingJobs(formatted);
-            }
-          }
-        }
-      }).catch(() => {});
+      const queue = await fetchModerationQueue();
+      setPendingJobs(Array.isArray(queue) ? queue : []);
     } catch {
-      // Fallback
+      setPendingJobs([]);
+    }
+  };
+
+  const loadApps = async () => {
+    try {
+      const apps = await fetchApplications();
+      setApplicationsList(Array.isArray(apps) ? apps : []);
+    } catch {
+      setApplicationsList([]);
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('mandya_admin_token');
+    if (token) {
+      setIsAdminAuthenticated(true);
+      loadQueue();
+      loadApps();
     }
   }, []);
 
-  const loadDemoQueue = () => {
-    setPendingJobs(DEMO_PENDING_QUEUE);
-    setToastMessage('Loaded sample moderation queue for testing.');
-    setTimeout(() => setToastMessage(''), 3000);
-  };
-
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPin === '9999' || adminPin === 'admin123') {
-      try {
-        localStorage.setItem('mandya_admin_auth', 'true');
-      } catch {
-        // Fallback
-      }
+    setPinError('');
+    try {
+      const res = await adminLogin(adminPin);
+      localStorage.setItem('mandya_admin_token', res.token);
+      localStorage.setItem('mandya_admin_pin', adminPin);
       setIsAdminAuthenticated(true);
-      setPinError('');
-    } else {
-      setPinError('Invalid admin passcode. (Default: 9999)');
+      await Promise.all([loadQueue(), loadApps()]);
+    } catch (err: any) {
+      setPinError(err.message || 'Invalid administrator passcode');
     }
   };
 
   const handleAdminLogout = () => {
-    try {
-      localStorage.removeItem('mandya_admin_auth');
-    } catch {
-      // Fallback
-    }
+    localStorage.removeItem('mandya_admin_token');
+    localStorage.removeItem('mandya_admin_pin');
     setIsAdminAuthenticated(false);
     setAdminPin('');
+    setPendingJobs([]);
   };
 
-  const handleAction = async (id: string, action: 'approved' | 'rejected') => {
-    const jobItem = pendingJobs.find((j) => j.id === id);
-    const updatedQueue = pendingJobs.filter((j) => j.id !== id);
-    setPendingJobs(updatedQueue);
-
+  const handleVerify = async (id: string) => {
+    setErrorMessage('');
     try {
-      await moderateJob(id, action === 'approved' ? 'APPROVE' : 'REJECT').catch(() => {});
-
-      // Update moderation queue in localStorage
-      const remainingFullJobs = updatedQueue.map((q) => q.fullJob).filter(Boolean);
-      localStorage.setItem('mandya_moderation_queue', JSON.stringify(remainingFullJobs));
-
-      if (action === 'approved' && jobItem?.fullJob) {
-        const approvedJob = {
-          ...jobItem.fullJob,
-          status: JobStatus.PUBLISHED,
-          orgVerified: true,
-          approvedAt: new Date().toISOString(),
-        };
-
-        const existingApproved = JSON.parse(localStorage.getItem('mandya_approved_jobs') || '[]');
-        localStorage.setItem(
-          'mandya_approved_jobs',
-          JSON.stringify([approvedJob, ...existingApproved.filter((j: any) => j.id !== id)])
-        );
-      }
-    } catch {
-      // Fallback
+      await verifyEmployer(id);
+      setToastMessage('Employer contact and trade credentials verified!');
+      setTimeout(() => setToastMessage(''), 3500);
+      await loadQueue();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Verification failed');
+      setTimeout(() => setErrorMessage(''), 4000);
     }
+  };
 
-    setToastMessage(
-      lang === 'kn'
-        ? `"${jobItem?.title}" ಹುದ್ದೆಯನ್ನು ${action === 'approved' ? 'ಅನುಮೋದಿಸಲಾಗಿದೆ' : 'ತಿರಸ್ಕರಿಸಲಾಗಿದೆ'}.`
-        : `Job "${jobItem?.title}" has been ${action}.`
-    );
-    setTimeout(() => setToastMessage(''), 3500);
+  const handleModerate = async (
+    id: string,
+    action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES',
+    reason?: string
+  ) => {
+    setErrorMessage('');
+    try {
+      await moderateJob(id, action, reason);
+      setToastMessage(`Job status updated: ${action}`);
+      setTimeout(() => setToastMessage(''), 3500);
+      await loadQueue();
+    } catch (err: any) {
+      setErrorMessage(err.message || `Action ${action} failed`);
+      setTimeout(() => setErrorMessage(''), 4000);
+    }
   };
 
   return (
@@ -286,7 +161,7 @@ export default function AdminReviewPage() {
                     {lang === 'kn' ? 'ಮಧ್ಯಸ್ಥಿಕೆ ಮತ್ತು ಪರಿಶೀಲನೆ' : 'Moderation & Verification'}
                   </h1>
                   <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-                    Live Session
+                    Live Authenticated Session
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -314,7 +189,7 @@ export default function AdminReviewPage() {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Pending ({pendingJobs.length})
+                Moderation Queue ({pendingJobs.length})
               </button>
               <button
                 onClick={() => setActiveTab('applications')}
@@ -324,198 +199,190 @@ export default function AdminReviewPage() {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Applications ({applicationsCount})
-              </button>
-              <button
-                onClick={() => setActiveTab('profiles')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition ${
-                  activeTab === 'profiles'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                Profiles ({profilesList.length})
+                Applications ({applicationsList.length})
               </button>
             </div>
 
-          {/* Toast Notification */}
-          {toastMessage && (
-            <div className="mb-4 p-2.5 bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold text-teal-800 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-              <span>{toastMessage}</span>
-            </div>
-          )}
+            {/* Toast Notifications */}
+            {toastMessage && (
+              <div className="mb-4 p-2.5 bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold text-teal-800 flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                <span>{toastMessage}</span>
+              </div>
+            )}
 
-          {/* Tab 1: Pending Moderation Queue */}
-          {activeTab === 'pending' && (
-            <div className="space-y-4">
-              {pendingJobs.map((job) => (
-                <div
-                  key={job.id}
-                  className={`rounded-2xl border p-4 transition ${
-                    job.flagged
-                      ? 'border-amber-400 bg-amber-50/20 shadow-sm'
-                      : 'border-slate-200 bg-white shadow-sm'
-                  }`}
-                >
-                  <div className="mb-2">
-                    <h3 className="font-bold text-sm text-slate-900">{job.title}</h3>
-                    <p className="text-xs text-slate-500">
-                      {job.company} • {job.locality}
-                    </p>
-                  </div>
+            {errorMessage && (
+              <div className="mb-4 p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-800 flex items-center gap-2 animate-fade-in">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
-                  <div className="mb-3">
-                    {job.flagged ? (
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{job.flagMessage}</span>
+            {/* Tab 1: Pending Moderation Queue */}
+            {activeTab === 'pending' && (
+              <div className="space-y-4">
+                {pendingJobs.map((job) => (
+                  <div
+                    key={job.id}
+                    className={`rounded-2xl border p-5 transition ${
+                      job.fraudAlerts && job.fraudAlerts.length > 0
+                        ? 'border-amber-400 bg-amber-50/20 shadow-sm'
+                        : 'border-slate-200 bg-white shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-base text-slate-900">{job.title}</h3>
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                            Status: {job.status}
+                          </span>
+                          {job.orgVerified ? (
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 text-teal-600" />
+                              Employer Verified
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                              Verification Pending
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 mt-1">
+                          {job.orgName} • {job.orgBusinessType} • {job.taluk}
+                        </p>
                       </div>
-                    ) : (
-                      <p className="text-xs font-medium text-teal-700">{job.flagMessage}</p>
-                    )}
-                  </div>
+                      <span className="text-[11px] text-slate-400">Ref: {job.submissionRef || job.id}</span>
+                    </div>
 
-                  {/* Moderation Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleAction(job.id, 'approved')}
-                      className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                        job.flagged
-                          ? 'border border-teal-600 text-teal-700 hover:bg-teal-50'
-                          : 'bg-teal-700 hover:bg-teal-800 text-white shadow-sm'
-                      }`}
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Approve</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleAction(job.id, 'rejected')}
-                      className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                        job.flagged
-                          ? 'bg-red-700 hover:bg-red-800 text-white shadow-sm'
-                          : 'border border-red-600 text-red-600 hover:bg-red-50'
-                      }`}
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Reject</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {pendingJobs.length === 0 && (
-                <div className="text-center py-8 text-xs text-slate-400 space-y-3">
-                  <p>All pending moderation reviews are complete!</p>
-                  <button
-                    onClick={loadDemoQueue}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
-                  >
-                    Load Sample Queue (Demo)
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab 2: Live Applications */}
-          {activeTab === 'applications' && (
-            <div className="space-y-3">
-              {applicationsList.length === 0 ? (
-                <div className="text-center py-8 text-xs text-slate-400">
-                  No applications received yet.
-                </div>
-              ) : (
-                applicationsList.map((app) => (
-                  <div
-                    key={app.id}
-                    className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs flex items-center justify-between"
-                  >
-                    <div>
-                      <h4 className="font-bold text-slate-900">{app.candidateName}</h4>
-                      <p className="text-slate-500 mt-0.5">
-                        {app.jobTitle} • {app.orgName} • Phone: {app.candidatePhone}
+                    {/* Private Verification Information for Administrator */}
+                    <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
+                      <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wider">
+                        Private Poster Verification Details
                       </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600 pt-1">
+                        <p className="flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Contact: <strong>{job.posterContactName || 'Not specified'}</strong></span>
+                        </p>
+                        <p className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Phone: <strong>{job.posterContactPhone || job.contactPhone || 'None'}</strong></span>
+                        </p>
+                        {job.posterContactEmail && (
+                          <p className="flex items-center gap-1.5">
+                            <Mail className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Email: <strong>{job.posterContactEmail}</strong></span>
+                          </p>
+                        )}
+                        <p className="flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Route: <strong>{job.applicationRoute || (job.isWalkIn ? 'WALK_IN' : 'DIRECT')}</strong></span>
+                        </p>
+                      </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                      {app.status}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
 
-          {/* Tab 3: Candidate Profiles */}
-          {activeTab === 'profiles' && (
-            <div className="space-y-3">
-              {profilesList.length === 0 ? (
-                <div className="text-center py-8 text-xs text-slate-400">
-                  No candidate profiles registered yet.
-                </div>
-              ) : (
-                profilesList.map((prof, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-bold text-slate-900">{prof.fullName || prof.name}</h4>
-                      <span className="text-[11px] text-slate-500">{prof.taluk}</span>
-                    </div>
-                    <p className="text-slate-600">{prof.education}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {prof.skills?.map((s: string) => (
-                        <span
-                          key={s}
-                          className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-600"
+                    {/* Fraud Alerts / Flags */}
+                    {job.fraudAlerts && job.fraudAlerts.length > 0 && (
+                      <div className="mb-4 p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">Fraud / Policy Alerts:</p>
+                          <ul className="list-disc list-inside mt-0.5 space-y-0.5">
+                            {job.fraudAlerts.map((flag, idx) => (
+                              <li key={idx}>{flag}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Description preview */}
+                    <p className="text-xs text-slate-600 mb-4 line-clamp-2">{job.description}</p>
+
+                    {/* Moderation Actions */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                      {!job.orgVerified && (
+                        <button
+                          onClick={() => handleVerify(job.id)}
+                          className="py-2 px-3 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition flex items-center gap-1"
                         >
-                          {s}
-                        </span>
-                      ))}
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>1. Verify Employer</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleModerate(job.id, 'APPROVE', 'Verified local employer with trade license.')}
+                        disabled={!job.orgVerified}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center gap-1 transition ${
+                          job.orgVerified
+                            ? 'bg-teal-700 hover:bg-teal-800 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                        }`}
+                        title={!job.orgVerified ? 'Verify employer contact before approving' : 'Approve and publish to public feed'}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>2. Approve & Publish</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleModerate(job.id, 'REQUEST_CHANGES', 'Please provide valid business registration or trade certificate.')}
+                        className="py-2 px-3 border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl text-xs font-bold transition"
+                      >
+                        Request Changes
+                      </button>
+
+                      <button
+                        onClick={() => handleModerate(job.id, 'REJECT', 'Violates policy or failed authentication.')}
+                        className="py-2 px-3 border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Reject</span>
+                      </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          )}
+                ))}
 
-          {/* Latest Application Box (Only shown if applications exist) */}
-          {applicationsList.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-slate-100">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Latest application
-              </h2>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-bold text-xs text-slate-900">
-                      {applicationsList[0].candidateName}
-                    </h4>
-                    <p className="text-[11px] text-slate-500">
-                      {applicationsList[0].jobTitle} • {applicationsList[0].orgName}
-                    </p>
-                  </div>
-                  {applicationsList[0].matchScore && (
-                    <span className="font-bold text-xs text-teal-700">
-                      {applicationsList[0].matchScore}%
-                    </span>
-                  )}
-                </div>
-
-                {applicationsList[0].resumeName && (
-                  <div className="mt-2 text-[11px] font-semibold text-blue-600 flex items-center gap-1">
-                    <FileText className="w-3 h-3" />
-                    <span>{applicationsList[0].resumeName} (Verified)</span>
+                {pendingJobs.length === 0 && (
+                  <div className="text-center py-12 text-xs text-slate-400 space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-teal-500 mx-auto" />
+                    <p className="font-semibold text-slate-600">All pending moderation reviews are complete.</p>
+                    <p>New submissions from employers will automatically appear in this live queue.</p>
                   </div>
                 )}
               </div>
-            </div>
-          )}
-        </div>
-      </main>
+            )}
+
+            {/* Tab 2: Applications */}
+            {activeTab === 'applications' && (
+              <div className="space-y-3">
+                {applicationsList.length === 0 ? (
+                  <div className="text-center py-12 text-xs text-slate-400">
+                    No candidate applications submitted yet.
+                  </div>
+                ) : (
+                  applicationsList.map((app) => (
+                    <div
+                      key={app.id}
+                      className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs flex items-center justify-between"
+                    >
+                      <div>
+                        <h4 className="font-bold text-slate-900">{app.candidateName}</h4>
+                        <p className="text-slate-500 mt-0.5">
+                          {app.jobTitle} • {app.orgName} • Phone: {app.candidatePhone}
+                        </p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        {app.status}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </main>
       )}
     </div>
   );

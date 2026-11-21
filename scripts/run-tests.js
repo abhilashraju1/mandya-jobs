@@ -311,6 +311,7 @@ assert(draft.status === 'DRAFT', 'Job begins in DRAFT state');
 const submitted = jobsService.submitForReview(draft.id);
 assert(submitted.status === 'SUBMITTED', 'Job transitions to SUBMITTED for review');
 
+jobsService.verifyEmployer(submitted.id);
 const approved = jobsService.moderateJob(submitted.id, 'APPROVE');
 assert(approved.status === 'PUBLISHED', 'Moderator approval transitions job to PUBLISHED');
 

@@ -5,9 +5,20 @@ import { useParams, useRouter } from 'next/navigation';
 import { Navbar } from '../../../components/Navbar';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { fetchJobById, submitApplication } from '../../../lib/api';
-import { JobDTO, ApplicationStatus } from '@mandya-jobs/types';
+import { JobDTO } from '@mandya-jobs/types';
 import { useLanguage } from '../../../context/LanguageContext';
-import { MapPin, Calendar, CheckCircle2, ArrowLeft, Share2, Building2, ExternalLink, Phone } from 'lucide-react';
+import {
+  MapPin,
+  Calendar,
+  CheckCircle2,
+  ArrowLeft,
+  Share2,
+  ExternalLink,
+  Phone,
+  Navigation,
+  Clock,
+  Building,
+} from 'lucide-react';
 import Link from 'next/link';
 
 export default function JobDetailPage() {
@@ -82,6 +93,8 @@ export default function JobDetailPage() {
     }
   };
 
+  const isWalkInJob = Boolean(job?.isWalkIn || job?.applicationRoute === 'WALK_IN');
+
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-[#17243B] pb-20">
       <OfflineBanner lang={lang} />
@@ -106,13 +119,13 @@ export default function JobDetailPage() {
         </div>
 
         {shareNotice && (
-          <div className="mb-4 p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-800 text-center">
+          <div className="mb-4 p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-800 text-center animate-fade-in">
             {shareNotice}
           </div>
         )}
 
         {applyNotice && (
-          <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold text-teal-800 flex items-center gap-2">
+          <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold text-teal-800 flex items-center gap-2 animate-fade-in">
             <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
             <span>{applyNotice}</span>
           </div>
@@ -125,12 +138,12 @@ export default function JobDetailPage() {
         ) : !job ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
             <p className="text-sm font-bold text-slate-800">
-              {lang === 'kn' ? 'ಹುದ್ದೆ ಲಭ್ಯವಿಲ್ಲ ಅಥವಾ ಪರಿಶೀಲನೆಯಲ್ಲಿದೆ' : 'Vacancy not found or pending review'}
+              {lang === 'kn' ? 'ಹುದ್ದೆ ಲಭ್ಯವಿಲ್ಲ ಅಥವಾ ಪರಿಶೀಲನೆಯಲ್ಲಿದೆ' : 'Vacancy not found, expired, or pending review'}
             </p>
             <p className="text-xs text-slate-500">
               {lang === 'kn'
-                ? 'ಈ ಹುದ್ದೆಯನ್ನು ಹಿಂಪಡೆಯಲಾಗಿದೆ ಅಥವಾ ಅನುಮೋದನೆಯಾಗುವವರೆಗೆ ಖಾಸಗಿಯಾಗಿದೆ.'
-                : 'This job may have been unlisted or is awaiting admin verification before publication.'}
+                ? 'ಈ ಹುದ್ದೆಯನ್ನು ಹಿಂಪಡೆಯಲಾಗಿದೆ, ಅವಧಿ ಮೀರಿದೆ ಅಥವಾ ಅನುಮೋದನೆಯಾಗುವವರೆಗೆ ಸಾರ್ವಜನಿಕವಾಗಿ ಲಭ್ಯವಿಲ್ಲ.'
+                : 'This job may have expired, been unlisted, or is awaiting administrator verification before public release.'}
             </p>
             <Link
               href="/"
@@ -148,6 +161,12 @@ export default function JobDetailPage() {
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
                     <span>Verified</span>
+                  </span>
+                )}
+                {isWalkInJob && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Walk-in Drive</span>
                   </span>
                 )}
               </div>
@@ -202,15 +221,36 @@ export default function JobDetailPage() {
               </div>
             )}
 
-            {/* Walk-in Info */}
-            {job.isWalkIn && job.walkInVenue && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-1 text-xs">
-                <h3 className="font-bold text-amber-900 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-amber-600" />
-                  <span>Walk-in Interview Details</span>
+            {/* Walk-in Dedicated Card */}
+            {isWalkInJob && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-xs">
+                <h3 className="font-bold text-amber-950 flex items-center gap-1.5 text-sm">
+                  <Calendar className="w-4 h-4 text-amber-700" />
+                  <span>{lang === 'kn' ? 'ನೇರ ಸಂದರ್ಶನ ವಿವರಗಳು (Walk-in Drive)' : 'Walk-in Interview Particulars'}</span>
                 </h3>
-                <p className="text-amber-800">Venue: <span className="font-semibold">{job.walkInVenue}</span></p>
-                {job.walkInTimings && <p className="text-amber-800">Timings: {job.walkInTimings}</p>}
+                <div className="space-y-1 text-amber-900">
+                  {job.walkInVenue && (
+                    <p className="flex items-start gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <span><strong>Venue:</strong> {job.walkInVenue}</span>
+                    </p>
+                  )}
+                  {job.walkInTimings && (
+                    <p className="flex items-start gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <span><strong>Timings:</strong> {job.walkInTimings}</span>
+                    </p>
+                  )}
+                  {job.walkInDates && (
+                    <p className="flex items-start gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <span><strong>Dates:</strong> {job.walkInDates}</span>
+                    </p>
+                  )}
+                </div>
+                <p className="text-[11px] text-amber-800 pt-1 border-t border-amber-200/60">
+                  ℹ️ {lang === 'kn' ? 'ದಯವಿಟ್ಟು ನೇರವಾಗಿ ನಿಗದಿತ ಸ್ಥಳಕ್ಕೆ ತೆರಳಿ ಹಾಜರಾಗಿ. ಆನ್‌ಲೈನ್ ಅರ್ಜಿ ಅಗತ್ಯವಿಲ್ಲ.' : 'Attend directly at the stated venue and timings with your documents. No pre-application required.'}
+                </p>
               </div>
             )}
 
@@ -223,7 +263,7 @@ export default function JobDetailPage() {
                   rel="noopener noreferrer"
                   className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-sm"
                 >
-                  <span>Apply on Company Website</span>
+                  <span>{lang === 'kn' ? 'ಸಂಸ್ಥೆಯ ವೆಬ್‌ಸೈಟ್‌ನಲ್ಲಿ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ' : 'Apply on Company Website'}</span>
                   <ExternalLink className="w-4 h-4" />
                 </a>
               ) : job.applicationRoute === 'PHONE_CALL' && job.contactPhone ? (
@@ -232,8 +272,13 @@ export default function JobDetailPage() {
                   className="w-full py-3 px-4 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-sm"
                 >
                   <Phone className="w-4 h-4" />
-                  <span>Call Employer ({job.contactPhone})</span>
+                  <span>{lang === 'kn' ? `ಮಾಲೀಕರಿಗೆ ಕರೆ ಮಾಡಿ (${job.contactPhone})` : `Call Employer (${job.contactPhone})`}</span>
                 </a>
+              ) : isWalkInJob ? (
+                <div className="w-full py-3 px-4 bg-amber-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow-sm">
+                  <Navigation className="w-4 h-4" />
+                  <span>{lang === 'kn' ? 'ನೇರ ಸಂದರ್ಶನಕ್ಕೆ ಹಾಜರಾಗಿ (ಸ್ಥಳಕ್ಕೆ ಭೇಟಿ ನೀಡಿ)' : 'Walk-in Directly to Venue'}</span>
+                </div>
               ) : (
                 <button
                   onClick={handleApply}

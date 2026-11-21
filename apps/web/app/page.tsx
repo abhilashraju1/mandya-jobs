@@ -20,6 +20,28 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+const TALUK_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  'Mandya Town': { lat: 12.524, lng: 76.896 },
+  'Maddur': { lat: 12.584, lng: 77.045 },
+  'Malavalli': { lat: 12.386, lng: 77.056 },
+  'Srirangapatna': { lat: 12.423, lng: 76.695 },
+  'Pandavapura': { lat: 12.497, lng: 76.669 },
+  'Nagamangala': { lat: 12.821, lng: 76.758 },
+  'KR Pete': { lat: 12.659, lng: 76.495 },
+};
+
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
 export default function HomePage() {
   const { lang, toggleLanguage } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,6 +52,7 @@ export default function HomePage() {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedTaluk, setSelectedTaluk] = useState<string>('ALL');
   const [locationMode, setLocationMode] = useState<'ALL' | 'SELECT' | 'NEAR_ME'>('ALL');
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedEducation, setSelectedEducation] = useState<string>('ALL');
   const [geoNotice, setGeoNotice] = useState<string>('');
   const [walkInOnly, setWalkInOnly] = useState<boolean>(false);
@@ -46,21 +69,7 @@ export default function HomePage() {
     setIsLoading(true);
     try {
       const data = await fetchJobs();
-      if (Array.isArray(data) && data.length > 0) {
-        setLiveJobs(data);
-      } else {
-        const storedApproved = localStorage.getItem('mandya_approved_jobs');
-        if (storedApproved) {
-          const parsed = JSON.parse(storedApproved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setLiveJobs(parsed);
-          } else {
-            setLiveJobs([]);
-          }
-        } else {
-          setLiveJobs([]);
-        }
-      }
+      setLiveJobs(Array.isArray(data) ? data : []);
     } catch {
       setLiveJobs([]);
     } finally {
@@ -103,27 +112,22 @@ export default function HomePage() {
   const handleSeedDemo = async () => {
     try {
       await seedDemoData();
-      localStorage.setItem('mandya_approved_jobs', JSON.stringify(MANDYA_SEED_JOBS));
-      setLiveJobs(MANDYA_SEED_JOBS);
-      setSeedNotice('Seeded 9 verified Mandya vacancies!');
+      await loadJobs();
+      setSeedNotice('Seeded 10 verified Mandya vacancies from server!');
       setTimeout(() => setSeedNotice(''), 4000);
     } catch {
-      setLiveJobs(MANDYA_SEED_JOBS);
+      await loadJobs();
     }
   };
 
   const handleResetData = async () => {
     try {
       await resetData();
-      localStorage.removeItem('mandya_approved_jobs');
       localStorage.removeItem('mandya_saved_jobs');
       localStorage.removeItem('mandya_applied_jobs');
-      localStorage.removeItem('mandya_applications');
-      localStorage.removeItem('mandya_candidate_profile');
       setLiveJobs([]);
       setSavedJobs({});
       setAppliedJobs({});
-      setCandidateProfile(null);
       setSeedNotice('Reset to clean initial launch state (0 vacancies, 0 applications).');
       setTimeout(() => setSeedNotice(''), 4000);
     } catch {
@@ -273,7 +277,11 @@ export default function HomePage() {
     if (locationMode === 'SELECT' && selectedTaluk !== 'ALL') {
       if (job.taluk.toLowerCase() !== selectedTaluk.toLowerCase()) return false;
     } else if (locationMode === 'NEAR_ME') {
-      if (job.taluk !== 'Mandya Town') return false;
+      if (userCoords) {
+        const talukCoord = TALUK_COORDINATES[job.taluk] || TALUK_COORDINATES['Mandya Town'];
+        const distance = calculateDistanceKm(userCoords.lat, userCoords.lng, talukCoord.lat, talukCoord.lng);
+        if (distance > 30) return false;
+      }
     }
     if (selectedEducation !== 'ALL') {
       const jobEd = (job.minEducation || '').toLowerCase();
@@ -352,25 +360,28 @@ export default function HomePage() {
                     if (typeof navigator !== 'undefined' && navigator.geolocation) {
                       navigator.geolocation.getCurrentPosition(
                         (pos) => {
+                          setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                           setGeoNotice(
                             lang === 'kn'
-                              ? `ಸಾಮೀಪ್ಯ: ನಿಮ್ಮ ಲೊಕೇಶನ್ (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}) - ಮಂಡ್ಯ ನಗರ`
-                              : `Nearby: Your location (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}) ~15km`
+                              ? `ಸಾಮೀಪ್ಯ: (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}) ವ್ಯಾಪ್ತಿಯ ಉದ್ಯೋಗಗಳು`
+                              : `Near Me: Jobs within ~30km of (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)})`
                           );
                         },
                         () => {
+                          setUserCoords(null);
                           setGeoNotice(
                             lang === 'kn'
-                              ? 'ಸಾಮೀಪ್ಯ: ಮಂಡ್ಯ ನಗರ (15 ಕಿ.ಮೀ ವ್ಯಾಪ್ತಿ)'
-                              : 'Near you: Mandya Town (~15km radius)'
+                              ? 'ಸ್ಥಳ ಪ್ರವೇಶ ನಿರಾಕರಿಸಲಾಗಿದೆ - ಎಲ್ಲಾ ತಾಲೂಕುಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ'
+                              : 'Location access denied - showing all district vacancies'
                           );
                         }
                       );
                     } else {
+                      setUserCoords(null);
                       setGeoNotice(
                         lang === 'kn'
-                          ? 'ಸಾಮೀಪ್ಯ: ಮಂಡ್ಯ ನಗರ (15 ಕಿ.ಮೀ ವ್ಯಾಪ್ತಿ)'
-                          : 'Near you: Mandya Town (~15km radius)'
+                          ? 'ಸ್ಥಳ ಪ್ರವೇಶ ಲಭ್ಯವಿಲ್ಲ - ಎಲ್ಲಾ ತಾಲೂಕುಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ'
+                          : 'Geolocation not supported - showing all district vacancies'
                       );
                     }
                   }}
@@ -769,11 +780,14 @@ export default function HomePage() {
               <div>
                 <label className="block font-semibold text-slate-700 mb-2">Taluk / Area</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {['ALL', 'Mandya Town', 'Maddur', 'Malavalli', 'Srirangapatna', 'Pandavapura'].map(
+                  {['ALL', 'Mandya Town', 'Maddur', 'Malavalli', 'Srirangapatna', 'Pandavapura', 'Nagamangala', 'KR Pete'].map(
                     (t) => (
                       <button
                         key={t}
-                        onClick={() => setSelectedTaluk(t)}
+                        onClick={() => {
+                          setSelectedTaluk(t);
+                          setLocationMode(t === 'ALL' ? 'ALL' : 'SELECT');
+                        }}
                         className={`py-2 px-3 rounded-xl border text-center font-medium transition ${
                           selectedTaluk === t
                             ? 'border-blue-600 bg-blue-50 text-blue-700 font-bold'
@@ -815,6 +829,7 @@ export default function HomePage() {
                 <button
                   onClick={() => {
                     setSelectedTaluk('ALL');
+                    setLocationMode('ALL');
                     setWalkInOnly(false);
                     setShowFilterDrawer(false);
                   }}

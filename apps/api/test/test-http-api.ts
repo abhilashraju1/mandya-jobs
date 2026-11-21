@@ -52,6 +52,7 @@ export async function runLiveHttpE2ESuite() {
     // TEST 2: Public Job Discovery & Clean Startup Verification
     // -------------------------------------------------------------------------
     console.log('\n🔍 SUITE 2: Public Job Discovery & Filtering');
+    await fetch(`${BASE_URL}/jobs/reset`, { method: 'POST' });
     const cleanJobsRes = await fetch(`${BASE_URL}/jobs`);
     assertHttp(cleanJobsRes.status === 200, 'GET /api/v1/jobs returns HTTP 200');
     const cleanJobs = await cleanJobsRes.json();
@@ -125,14 +126,64 @@ export async function runLiveHttpE2ESuite() {
     // TEST 4: Admin Moderator Review & Publication
     // -------------------------------------------------------------------------
     console.log('\n🛡️ SUITE 4: Admin Moderation & Approval');
-    const queueRes = await fetch(`${BASE_URL}/jobs/moderation/queue`);
+    
+    // Step 4.1: Unauthenticated request to moderation queue must be DENIED (HTTP 401)
+    const unauthQueueRes = await fetch(`${BASE_URL}/jobs/moderation/queue`);
+    assertHttp(unauthQueueRes.status === 401, 'Unauthenticated moderation queue request rejected with HTTP 401');
+
+    // Step 4.2: Admin login
+    const adminLoginRes = await fetch(`${BASE_URL}/auth/admin-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode: '9999' }),
+    });
+    assertHttp(adminLoginRes.status === 200, 'POST /api/v1/auth/admin-login returns HTTP 200');
+    const { token: adminToken } = await adminLoginRes.json();
+    assertHttp(Boolean(adminToken), 'Admin receives valid JWT bearer session');
+
+    const adminHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+    };
+
+    // Step 4.3: Authenticated access to queue
+    const queueRes = await fetch(`${BASE_URL}/jobs/moderation/queue`, { headers: adminHeaders });
     const queue = await queueRes.json();
     assertHttp(queue.some((j: any) => j.id === draftJob.id), 'Moderator queue contains submitted solar technician vacancy');
 
-    // Moderator approves the job
-    const approveRes = await fetch(`${BASE_URL}/jobs/${draftJob.id}/moderate`, {
+    // Step 4.4: Unauthenticated attempt to moderate must fail with 401
+    const unauthModRes = await fetch(`${BASE_URL}/jobs/${draftJob.id}/moderate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'APPROVE' }),
+    });
+    assertHttp(unauthModRes.status === 401, 'Unauthenticated moderate action blocked with HTTP 401');
+
+    // Step 4.5: Approval BEFORE employer verification must fail with HTTP 400
+    const prematureApproveRes = await fetch(`${BASE_URL}/jobs/${draftJob.id}/moderate`, {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({
+        action: 'APPROVE',
+        reason: 'Attempting to approve unverified employer',
+      }),
+    });
+    assertHttp(prematureApproveRes.status === 400, 'Approval blocked before employer verification with HTTP 400');
+
+    // Step 4.6: Verify employer first
+    const verifyEmpRes = await fetch(`${BASE_URL}/jobs/${draftJob.id}/verify-employer`, {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({ reviewerId: 'admin_officer_1' }),
+    });
+    assertHttp(verifyEmpRes.status === 201, 'POST /jobs/:id/verify-employer returns HTTP 201');
+    const verifiedJob = await verifyEmpRes.json();
+    assertHttp(verifiedJob.orgVerified === true, 'Employer verified status is active');
+
+    // Step 4.7: Moderator approves the verified job
+    const approveRes = await fetch(`${BASE_URL}/jobs/${draftJob.id}/moderate`, {
+      method: 'POST',
+      headers: adminHeaders,
       body: JSON.stringify({
         action: 'APPROVE',
         reason: 'Legitimate local solar business entity verified with trade license.',
@@ -142,14 +193,19 @@ export async function runLiveHttpE2ESuite() {
     assertHttp(approveRes.status === 201, 'POST /api/v1/jobs/:id/moderate returns HTTP 201');
     const approvedJob = await approveRes.json();
     assertHttp(approvedJob.status === 'PUBLISHED', 'Approved vacancy transitions to PUBLISHED');
-    assertHttp(approvedJob.orgVerified === true, 'Employer verified status is active');
     assertHttp(approvedJob.moderationHistory.length > 0, 'Moderation audit history recorded');
-    assertHttp(approvedJob.moderationHistory[0].reason.includes('trade license'), 'Moderator reason saved in audit history');
+    assertHttp(approvedJob.moderationHistory.some((m: any) => m.reason && m.reason.includes('trade license')), 'Moderator reason saved in audit history');
 
-    // Now verify job IS public and discoverable
+    // Step 4.8: Verify job IS public and discoverable
     const publishedCheckRes = await fetch(`${BASE_URL}/jobs`);
     const publishedCheck = await publishedCheckRes.json();
     assertHttp(publishedCheck.some((j: any) => j.id === draftJob.id), 'Approved vacancy is immediately discoverable in public search');
+
+    // Step 4.9: Privacy assertion - private poster contacts must NOT be exposed in public API
+    const publicJobRecord = publishedCheck.find((j: any) => j.id === draftJob.id);
+    assertHttp(publicJobRecord.posterContactName === undefined, 'Public listing strips private posterContactName');
+    assertHttp(publicJobRecord.posterContactPhone === undefined, 'Public listing strips private posterContactPhone');
+    assertHttp(publicJobRecord.posterContactEmail === undefined, 'Public listing strips private posterContactEmail');
 
     // -------------------------------------------------------------------------
     // TEST 5: Candidate Apply & Duplicate Prevention
@@ -264,7 +320,7 @@ export async function runLiveHttpE2ESuite() {
     console.log('\n🚫 SUITE 8: Anti-Fraud Enforcement & Scam Rejection');
     const rejectScamRes = await fetch(`${BASE_URL}/jobs/job_scam_test/moderate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders,
       body: JSON.stringify({
         action: 'REJECT',
         reason: 'Violates candidate free-access policy by demanding registration fee.',

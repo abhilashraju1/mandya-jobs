@@ -40,6 +40,8 @@ const appService = new ApplicationsService();
 const resumeService = new ResumeService();
 
 // Step 0: Clean startup verification & explicit seeding
+jobsService.resetJobs();
+appService.resetApplications();
 assertE2E(jobsService.getAllPublished().length === 0, 'Clean startup begins with 0 operational vacancies by default');
 jobsService.seedJobs();
 
@@ -187,7 +189,8 @@ const moderationQueue = jobsService.getModerationQueue();
 assertE2E(moderationQueue.some((j) => j.id === newWizardJob.id), 'Moderator sees submitted garment sales job in queue');
 assertE2E(moderationQueue.some((j) => j.id === 'job_scam_test'), 'Moderator sees flagged scam test job in queue');
 
-// Step 2: Moderator approves legitimate job
+// Step 2: Moderator verifies employer contact and approves legitimate job
+jobsService.verifyEmployer(newWizardJob.id);
 const approvedGarmentJob = jobsService.moderateJob(newWizardJob.id, 'APPROVE');
 assertE2E(approvedGarmentJob.status === 'PUBLISHED', 'Moderator approves genuine job; status becomes PUBLISHED');
 

@@ -1,28 +1,109 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { JobDTO, JobStatus, EmploymentType, WorkMode, SalaryPeriod, JobFilterParams } from '@mandya-jobs/types';
-import { calculateJobMatch, detectJobFraud } from '@mandya-jobs/validation';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { JobDTO, JobStatus, JobFilterParams } from '@mandya-jobs/types';
+import { calculateJobMatch } from '@mandya-jobs/validation';
+import { MANDYA_SEED_JOBS } from '@mandya-jobs/validation';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class JobsService {
   private jobs: JobDTO[] = [];
   private nextId = 100;
+  private storageDir: string;
+  private storageFile: string;
 
   constructor() {
-    this.jobs = [];
+    this.storageDir = process.env.DATA_DIR || path.join(__dirname, '../../../data');
+    this.storageFile = path.join(this.storageDir, 'jobs.json');
+    this.loadFromDisk();
+  }
+
+  private loadFromDisk() {
+    try {
+      if (!fs.existsSync(this.storageDir)) {
+        fs.mkdirSync(this.storageDir, { recursive: true });
+      }
+      if (fs.existsSync(this.storageFile)) {
+        const raw = fs.readFileSync(this.storageFile, 'utf-8');
+        this.jobs = JSON.parse(raw);
+      } else {
+        this.jobs = [];
+      }
+    } catch (err) {
+      this.jobs = [];
+    }
+  }
+
+  private saveToDisk() {
+    try {
+      if (!fs.existsSync(this.storageDir)) {
+        fs.mkdirSync(this.storageDir, { recursive: true });
+      }
+      fs.writeFileSync(this.storageFile, JSON.stringify(this.jobs, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('Failed to write jobs to disk:', err);
+    }
   }
 
   private toPublicProjection(job: JobDTO): JobDTO {
-    const { posterContactName, posterContactPhone, posterContactEmail, ...publicJob } = job;
+    const publicJob: any = {
+      id: job.id,
+      orgId: job.orgId,
+      orgName: job.orgName,
+      orgBusinessType: job.orgBusinessType,
+      orgVerified: job.orgVerified,
+      categoryId: job.categoryId,
+      categoryName: job.categoryName,
+      title: job.title,
+      employmentType: job.employmentType,
+      workMode: job.workMode,
+      taluk: job.taluk,
+      addressDisplay: job.addressDisplay,
+      salaryMin: job.salaryMin,
+      salaryMax: job.salaryMax,
+      salaryPeriod: job.salaryPeriod,
+      isNegotiable: job.isNegotiable,
+      minExpYears: job.minExpYears,
+      minEducation: job.minEducation,
+      specificCredential: job.specificCredential,
+      openings: job.openings,
+      description: job.description,
+      benefits: job.benefits,
+      requiredSkills: job.requiredSkills,
+      preferredSkills: job.preferredSkills,
+      isWalkIn: job.isWalkIn,
+      walkInDates: job.walkInDates,
+      walkInTimings: job.walkInTimings,
+      walkInVenue: job.walkInVenue,
+      applicationRoute: job.applicationRoute,
+      status: job.status,
+      createdAt: job.createdAt,
+      expiresAt: job.expiresAt,
+      match: job.match,
+    };
+
+    // Expose application phone strictly when route is PHONE_CALL
+    if (job.applicationRoute === 'PHONE_CALL' && job.contactPhone) {
+      publicJob.contactPhone = job.contactPhone;
+    }
+
+    // Expose external application URL strictly when route is EXTERNAL_URL
+    if (job.applicationRoute === 'EXTERNAL_URL' && job.externalApplicationUrl) {
+      publicJob.externalApplicationUrl = job.externalApplicationUrl;
+    }
+
     return publicJob as JobDTO;
   }
 
   resetJobs(): { count: number; message: string } {
     this.jobs = [];
+    this.saveToDisk();
     return { count: 0, message: 'All job records cleared' };
   }
 
   seedJobs(): { count: number; message: string } {
-    this.seedInitialJobs();
+    this.jobs = JSON.parse(JSON.stringify(MANDYA_SEED_JOBS));
+    this.saveToDisk();
     return { count: this.jobs.length, message: `Seeded ${this.jobs.length} verified jobs` };
   }
 
@@ -42,11 +123,11 @@ export class JobsService {
           j.title.toLowerCase().includes(q) ||
           j.orgName.toLowerCase().includes(q) ||
           j.taluk.toLowerCase().includes(q) ||
-          j.requiredSkills.some((s) => s.toLowerCase().includes(q))
+          (j.requiredSkills && j.requiredSkills.some((s) => s.toLowerCase().includes(q)))
       );
     }
 
-    if (filters?.taluk) {
+    if (filters?.taluk && filters.taluk !== 'ALL') {
       result = result.filter((j) => j.taluk.toLowerCase() === filters.taluk?.toLowerCase());
     }
 
@@ -75,7 +156,7 @@ export class JobsService {
             expectedSalary: candidateProfile.expectedSalary,
           },
           {
-            requiredSkills: job.requiredSkills,
+            requiredSkills: job.requiredSkills || [],
             preferredSkills: job.preferredSkills,
             minEducation: job.minEducation,
             minExpYears: job.minExpYears,
@@ -94,74 +175,17 @@ export class JobsService {
     if (!job) {
       throw new NotFoundException(`Job with ID ${id} not found`);
     }
+
+    const now = new Date();
+    const isExpired = job.expiresAt ? new Date(job.expiresAt) <= now : false;
+
     if (!isPrivileged) {
-      if (job.status !== JobStatus.PUBLISHED || !job.orgVerified) {
+      if (job.status !== JobStatus.PUBLISHED || !job.orgVerified || isExpired) {
         throw new NotFoundException(`Job with ID ${id} not found or not published`);
       }
       return this.toPublicProjection(job);
     }
-    return job;
-  }
 
-  createDraft(data: Partial<JobDTO>): JobDTO {
-    const id = `job_${Date.now()}_${++this.nextId}`;
-    const submissionRef = data.submissionRef || `REF-MDY-${Math.floor(100000 + Math.random() * 900000)}`;
-    const newJob: JobDTO = {
-      id,
-      submissionRef,
-      orgId: data.orgId || `org_${Date.now()}`,
-      orgName: data.orgName || 'Local Business',
-      orgBusinessType: data.orgBusinessType || 'Showroom',
-      orgVerified: data.orgVerified ?? false,
-      isGuestSubmission: data.isGuestSubmission ?? true,
-      categoryId: data.categoryId || 'showrooms',
-      categoryName: data.categoryName || 'Retail Showroom',
-      title: data.title || 'Untitled Job',
-      employmentType: data.employmentType || EmploymentType.FULL_TIME,
-      workMode: data.workMode || WorkMode.ON_SITE,
-      taluk: data.taluk || 'Mandya Town',
-      addressDisplay: data.addressDisplay || 'Mandya, Karnataka',
-      salaryMin: data.salaryMin,
-      salaryMax: data.salaryMax,
-      salaryPeriod: data.salaryPeriod || SalaryPeriod.MONTHLY,
-      isNegotiable: data.isNegotiable || false,
-      minExpYears: data.minExpYears || 0,
-      minEducation: data.minEducation || 'PUC',
-      specificCredential: data.specificCredential,
-      applicationRoute: data.applicationRoute,
-      externalApplicationUrl: data.externalApplicationUrl,
-      posterContactName: data.posterContactName,
-      openings: data.openings || 1,
-      description: data.description || '',
-      benefits: data.benefits || [],
-      requiredSkills: data.requiredSkills || ['Customer Service'],
-      preferredSkills: data.preferredSkills || [],
-      isWalkIn: data.isWalkIn || false,
-      walkInDates: data.walkInDates,
-      walkInTimings: data.walkInTimings,
-      walkInVenue: data.walkInVenue,
-      contactPhone: data.contactPhone,
-      contactEmail: data.contactEmail,
-      status: JobStatus.DRAFT,
-      createdAt: new Date().toISOString(),
-    };
-
-    this.jobs.push(newJob);
-    return newJob;
-  }
-
-  submitForReview(id: string): JobDTO {
-    const job = this.getById(id, true);
-    job.status = JobStatus.SUBMITTED;
-
-    const fraudCheck = detectJobFraud({
-      title: job.title,
-      description: job.description,
-      contactPhone: job.contactPhone,
-      contactEmail: job.contactEmail,
-    });
-
-    job.fraudAlerts = fraudCheck.flags;
     return job;
   }
 
@@ -169,360 +193,169 @@ export class JobsService {
     if (status) {
       return this.jobs.filter((j) => j.status === status);
     }
-    return this.jobs.filter((j) => j.status === JobStatus.SUBMITTED || j.status === JobStatus.UNDER_REVIEW);
+    return this.jobs.filter(
+      (j) =>
+        j.status === JobStatus.SUBMITTED ||
+        j.status === JobStatus.UNDER_REVIEW ||
+        j.status === JobStatus.CHANGES_REQUESTED ||
+        (j.fraudAlerts && j.fraudAlerts.length > 0)
+    );
+  }
+
+  createDraft(data: Partial<JobDTO>): JobDTO {
+    if (data.applicationRoute === 'EXTERNAL_URL' && data.externalApplicationUrl) {
+      const url = data.externalApplicationUrl;
+      if (!/^https?:\/\//i.test(url)) {
+        throw new BadRequestException('A valid web application URL starting with http:// or https:// is required.');
+      }
+    }
+
+    const id = `job_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const submissionRef = `REF-MDY-${Date.now().toString().slice(-6)}`;
+
+    // Fraud alerts detection on text if present
+    const fraudAlerts = [...(data.fraudAlerts || [])];
+    if (data.description && /registration fee|security deposit/i.test(data.description)) {
+      if (!fraudAlerts.some((f) => f.includes('registration fee'))) {
+        fraudAlerts.push('Flagged: "registration fee" (recruitment fee violation)');
+      }
+    }
+
+    const newJob: JobDTO = {
+      id,
+      orgId: data.orgId || `org_${Date.now()}`,
+      orgName: data.orgName || 'Local Business',
+      orgBusinessType: data.orgBusinessType || 'Business',
+      orgVerified: false,
+      contactVerified: false,
+      isGuestSubmission: data.isGuestSubmission ?? true,
+      categoryId: data.categoryId || 'other',
+      categoryName: data.categoryName || data.orgBusinessType || 'Other',
+      title: data.title || 'Untitled Vacancy',
+      employmentType: data.employmentType || ('FULL_TIME' as any),
+      workMode: data.workMode || ('ON_SITE' as any),
+      taluk: data.taluk || 'Mandya Town',
+      addressDisplay: data.addressDisplay || `${data.taluk || 'Mandya Town'}, Mandya District`,
+      salaryMin: data.salaryMin,
+      salaryMax: data.salaryMax,
+      salaryPeriod: data.salaryPeriod || ('MONTHLY' as any),
+      isNegotiable: data.isNegotiable || false,
+      minExpYears: data.minExpYears ?? 0,
+      minEducation: data.minEducation || 'None',
+      specificCredential: data.specificCredential,
+      applicationRoute: data.applicationRoute || (data.isWalkIn ? 'WALK_IN' : 'MANDYA_JOBS_DIRECT'),
+      externalApplicationUrl: data.externalApplicationUrl,
+      openings: data.openings || 1,
+      description: data.description || '',
+      benefits: data.benefits || [],
+      requiredSkills: data.requiredSkills || [],
+      preferredSkills: data.preferredSkills || [],
+      isWalkIn: Boolean(data.isWalkIn || data.applicationRoute === 'WALK_IN'),
+      walkInDates: data.walkInDates,
+      walkInTimings: data.walkInTimings,
+      walkInVenue: data.walkInVenue,
+      contactPhone: data.contactPhone,
+      contactEmail: data.contactEmail,
+      posterContactName: data.posterContactName,
+      posterContactPhone: data.posterContactPhone,
+      posterContactEmail: data.posterContactEmail,
+      status: JobStatus.DRAFT,
+      submissionRef,
+      fraudAlerts,
+      moderationHistory: [
+        {
+          reviewerId: 'system',
+          action: 'DRAFT_CREATED',
+          reason: 'Vacancy draft initiated',
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    };
+
+    this.jobs.push(newJob);
+    this.saveToDisk();
+    return newJob;
+  }
+
+  submitForReview(id: string): JobDTO {
+    const job = this.jobs.find((j) => j.id === id);
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+    job.status = JobStatus.SUBMITTED;
+    job.moderationHistory = job.moderationHistory || [];
+    job.moderationHistory.push({
+      reviewerId: 'guest_poster',
+      action: 'SUBMITTED_FOR_REVIEW',
+      reason: 'Submitted by employer for verification and publication',
+      timestamp: new Date().toISOString(),
+    });
+    this.saveToDisk();
+    return job;
+  }
+
+  verifyEmployer(id: string, reviewerId = 'admin_moderator'): JobDTO {
+    const job = this.jobs.find((j) => j.id === id);
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+    job.orgVerified = true;
+    job.contactVerified = true;
+    job.moderationHistory = job.moderationHistory || [];
+    job.moderationHistory.push({
+      reviewerId,
+      action: 'VERIFY_EMPLOYER',
+      reason: 'Employer identity and contact details verified with trade registration',
+      timestamp: new Date().toISOString(),
+    });
+    this.saveToDisk();
+    return job;
   }
 
   moderateJob(
     id: string,
-    action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES' | 'VERIFY_EMPLOYER',
+    action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES' | 'VERIFY_EMPLOYER' | 'CLOSE',
     reason?: string,
-    reviewerId: string = 'mod_admin'
+    reviewerId: string = 'admin_moderator'
   ): JobDTO {
-    const job = this.getById(id, true);
-    job.moderationHistory = job.moderationHistory || [];
-    job.moderationHistory.push({
-      reviewerId,
-      action,
-      reason: reason || (action === 'APPROVE' ? 'Approved by moderator' : 'No reason provided'),
-      timestamp: new Date().toISOString(),
-    });
+    const job = this.jobs.find((j) => j.id === id);
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+
+    const fromStatus = job.status;
+    let toStatus = job.status;
 
     if (action === 'VERIFY_EMPLOYER') {
       job.orgVerified = true;
       job.contactVerified = true;
     } else if (action === 'APPROVE') {
-      job.orgVerified = true;
-      job.contactVerified = true;
+      if (!job.orgVerified) {
+        throw new BadRequestException('Employer and contact verification must be completed before publication');
+      }
       job.status = JobStatus.PUBLISHED;
+      toStatus = JobStatus.PUBLISHED;
     } else if (action === 'REJECT') {
       job.status = JobStatus.REJECTED;
+      toStatus = JobStatus.REJECTED;
     } else if (action === 'REQUEST_CHANGES') {
       job.status = JobStatus.CHANGES_REQUESTED;
+      toStatus = JobStatus.CHANGES_REQUESTED;
+    } else if (action === 'CLOSE') {
+      job.status = JobStatus.CLOSED;
+      toStatus = JobStatus.CLOSED;
     }
-    return job;
-  }
 
-  private seedInitialJobs() {
-    this.jobs = [
-      // 1. Retail / Showroom
-      {
-        id: 'job_1',
-        orgId: 'org_1',
-        orgName: 'Sri Lakshmi Showroom',
-        orgBusinessType: 'Showroom',
-        orgVerified: true,
-        categoryId: 'showrooms',
-        categoryName: 'Showrooms & Retail',
-        title: 'Billing Executive',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Mandya Town',
-        addressDisplay: 'VV Road, Mandya Town',
-        salaryMin: 15000,
-        salaryMax: 20000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: true,
-        minExpYears: 1,
-        minEducation: 'PUC / Graduate',
-        openings: 2,
-        description: 'Handle counter billing, POS operations, Tally inventory updates, and customer queries.',
-        benefits: ['ESI', 'PF', 'Performance Bonus'],
-        requiredSkills: ['billing', 'tally', 'customer service'],
-        preferredSkills: ['advanced excel'],
-        isWalkIn: true,
-        walkInDates: 'Mon-Sat (10:00 AM - 1:00 PM)',
-        walkInTimings: '10:00 AM - 1:00 PM',
-        walkInVenue: 'Sri Lakshmi Showroom, 2nd Floor, VV Road, Mandya',
-        contactPhone: '9845012345',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 2. Hospitality / Hotel
-      {
-        id: 'job_2',
-        orgId: 'org_2',
-        orgName: 'Green Leaf Hotel',
-        orgBusinessType: 'Hotel',
-        orgVerified: true,
-        categoryId: 'hospitality',
-        categoryName: 'Hotels & Restaurants',
-        title: 'Front Desk Associate',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Mandya Town',
-        addressDisplay: 'Bangalore-Mysore Highway, Mandya',
-        salaryMin: 14000,
-        salaryMax: 18000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: false,
-        minExpYears: 1,
-        minEducation: 'PUC',
-        openings: 3,
-        description: 'Manage guest check-ins, reservations, room allocations, and customer support.',
-        benefits: ['Duty Meals Provided', 'Uniform Allowance'],
-        requiredSkills: ['customer service', 'english', 'hotel desk software'],
-        preferredSkills: ['kannada typing'],
-        isWalkIn: false,
-        contactPhone: '9845123456',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 3. Healthcare / Lab
-      {
-        id: 'job_3',
-        orgId: 'org_3',
-        orgName: 'Mandya City Diagnostic Center',
-        orgBusinessType: 'Hospital/Clinic',
-        orgVerified: true,
-        categoryId: 'healthcare',
-        categoryName: 'Hospitals & Clinics',
-        title: 'Lab Assistant',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Mandya Town',
-        addressDisplay: 'Opposite District Hospital, Mandya',
-        salaryMin: 12000,
-        salaryMax: 16000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: false,
-        minExpYears: 2,
-        minEducation: 'Diploma in Medical Lab Technology',
-        openings: 1,
-        description: 'Conduct routine blood tests, urine analysis, sample collection, and equipment sterilization.',
-        benefits: ['Health Insurance', 'Safety Kit'],
-        requiredSkills: ['dmlt', 'pathology testing', 'lab safety'],
-        preferredSkills: ['biochemistry'],
-        isWalkIn: true,
-        walkInDates: 'Wed & Fri (9:00 AM - 12:00 PM)',
-        walkInTimings: '9:00 AM - 12:00 PM',
-        walkInVenue: 'Diagnostic Wing, Mandya',
-        contactPhone: '9845234567',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 4. Healthcare / Staff Nurse
-      {
-        id: 'job_4',
-        orgId: 'org_4',
-        orgName: 'Mandya Sanjeevini Hospital',
-        orgBusinessType: 'Hospital',
-        orgVerified: true,
-        categoryId: 'healthcare',
-        categoryName: 'Hospitals & Clinics',
-        title: 'Staff Nurse',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Mandya Town',
-        addressDisplay: 'Subhash Nagar, Mandya',
-        salaryMin: 18000,
-        salaryMax: 26000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: true,
-        minExpYears: 1,
-        minEducation: 'GNM / BSc Nursing',
-        openings: 5,
-        description: 'Provide inpatient care, medication administration, vitals monitoring, and patient support.',
-        benefits: ['PF', 'Night Shift Allowance', 'Medical Benefits'],
-        requiredSkills: ['nursing', 'patient care', 'first aid'],
-        preferredSkills: ['icu support'],
-        isWalkIn: true,
-        walkInDates: 'Mon to Fri (11:00 AM - 2:00 PM)',
-        walkInTimings: '11:00 AM - 2:00 PM',
-        walkInVenue: 'HR Office, Mandya Sanjeevini Hospital',
-        contactPhone: '9845345678',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 5. Education / Teacher
-      {
-        id: 'job_5',
-        orgId: 'org_5',
-        orgName: 'Rotary English School',
-        orgBusinessType: 'School',
-        orgVerified: true,
-        categoryId: 'education',
-        categoryName: 'Schools & Colleges',
-        title: 'Primary School Teacher',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Maddur',
-        addressDisplay: 'Near Bus Stand, Maddur, Mandya District',
-        salaryMin: 16000,
-        salaryMax: 22000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: true,
-        minExpYears: 1,
-        minEducation: 'B.Ed / D.Ed',
-        openings: 2,
-        description: 'Teach Mathematics and General Science for grades 1-5; conduct activities and tests.',
-        benefits: ['PF', 'Free Child Education', 'Annual Paid Leave'],
-        requiredSkills: ['teaching', 'mathematics', 'classroom management', 'english'],
-        preferredSkills: ['kannada'],
-        isWalkIn: false,
-        contactPhone: '9845456789',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 6. Finance / CA Accounts Assistant
-      {
-        id: 'job_6',
-        orgId: 'org_6',
-        orgName: 'K.S. Rao & Co. Chartered Accountants',
-        orgBusinessType: 'Office',
-        orgVerified: true,
-        categoryId: 'finance-legal',
-        categoryName: 'CA, Accounts & Legal',
-        title: 'Senior Accounts Assistant',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Mandya Town',
-        addressDisplay: 'Court Road, Mandya',
-        salaryMin: 18000,
-        salaryMax: 25000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: true,
-        minExpYears: 2,
-        minEducation: 'B.Com / M.Com',
-        openings: 2,
-        description: 'GST filing, TDS reconciliation, audit preparation, voucher entries, and client compliance.',
-        benefits: ['Bonus', 'Overtime Allowance'],
-        requiredSkills: ['tally prime', 'gst', 'tds', 'ms excel'],
-        preferredSkills: ['busy accounting'],
-        isWalkIn: false,
-        contactPhone: '9845567890',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 7. Dairy & Agriculture
-      {
-        id: 'job_7',
-        orgId: 'org_7',
-        orgName: 'Mandya District Milk Union (MANMUL)',
-        orgBusinessType: 'Dairy',
-        orgVerified: true,
-        categoryId: 'agriculture-dairy',
-        categoryName: 'Agriculture & Dairy',
-        title: 'Dairy Operations Assistant',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Maddur',
-        addressDisplay: 'Gejjalagere Plant, Maddur Taluk',
-        salaryMin: 16000,
-        salaryMax: 23000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: false,
-        minExpYears: 1,
-        minEducation: 'ITI / Diploma',
-        openings: 6,
-        description: 'Supervise milk pasteurisation plant, cold storage monitoring, batch quality logging.',
-        benefits: ['Subsidized Canteen', 'Transport Support', 'PF', 'ESI'],
-        requiredSkills: ['dairy processing', 'quality testing', 'machine maintenance'],
-        preferredSkills: ['refrigeration'],
-        isWalkIn: true,
-        walkInDates: 'Every Tuesday (10:00 AM - 1:00 PM)',
-        walkInTimings: '10:00 AM - 1:00 PM',
-        walkInVenue: 'MANMUL Main Gate Training Hall, Gejjalagere',
-        contactPhone: '9845678901',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 8. Logistics / Heavy Driving
-      {
-        id: 'job_8',
-        orgId: 'org_8',
-        orgName: 'Kaveri Milk Transports',
-        orgBusinessType: 'Logistics',
-        orgVerified: true,
-        categoryId: 'logistics',
-        categoryName: 'Driving & Logistics',
-        title: 'Commercial Heavy Driver',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Malavalli',
-        addressDisplay: 'Malavalli Main Depot, Mandya District',
-        salaryMin: 20000,
-        salaryMax: 28000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: true,
-        minExpYears: 3,
-        minEducation: '10th Pass with Valid HMV Badge',
-        openings: 4,
-        description: 'Daily collection routes from milk chilling centers across Mandya taluks to dairy plants.',
-        benefits: ['Trip Bata', 'Accident Insurance', 'PF'],
-        requiredSkills: ['heavy driving', 'route navigation', 'vehicle inspection'],
-        preferredSkills: ['clean record'],
-        isWalkIn: true,
-        walkInDates: 'Mon-Fri (9:30 AM - 12:30 PM)',
-        walkInTimings: '9:30 AM - 12:30 PM',
-        walkInVenue: 'Malavalli Transport Depot',
-        contactPhone: '9845789012',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 9. Legal / Legal Office Assistant
-      {
-        id: 'job_9',
-        orgId: 'org_9',
-        orgName: 'Advocate M.B. Patel & Associates',
-        orgBusinessType: 'Office',
-        orgVerified: true,
-        categoryId: 'finance-legal',
-        categoryName: 'CA, Accounts & Legal',
-        title: 'Legal Office Assistant',
-        employmentType: EmploymentType.FULL_TIME,
-        workMode: WorkMode.ON_SITE,
-        taluk: 'Srirangapatna',
-        addressDisplay: 'Fort Road, Srirangapatna',
-        salaryMin: 14000,
-        salaryMax: 18000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: false,
-        minExpYears: 0,
-        minEducation: 'PUC / Degree',
-        openings: 1,
-        description: 'Court case diary scheduling, drafting notice copies, filing papers at taluk magistrate office.',
-        benefits: ['Court Learning Experience', 'Annual Increment'],
-        requiredSkills: ['kannada typing', 'english typing', 'file management', 'client communication'],
-        preferredSkills: ['legal software'],
-        isWalkIn: false,
-        contactPhone: '9845890123',
-        status: JobStatus.PUBLISHED,
-        createdAt: new Date().toISOString(),
-      },
-      // 10. Intentional Suspicious Scam Job (For Moderator Testing)
-      {
-        id: 'job_scam_test',
-        orgId: 'org_unverified',
-        orgName: 'QuickEarn Services',
-        orgBusinessType: 'Other',
-        orgVerified: false,
-        categoryId: 'finance-legal',
-        categoryName: 'Other',
-        title: 'Data Entry Work From Home',
-        employmentType: EmploymentType.CONTRACT,
-        workMode: WorkMode.REMOTE,
-        taluk: 'Mandya Town',
-        addressDisplay: 'Remote / Online',
-        salaryMin: 30000,
-        salaryMax: 45000,
-        salaryPeriod: SalaryPeriod.MONTHLY,
-        isNegotiable: false,
-        minExpYears: 0,
-        minEducation: 'None',
-        openings: 50,
-        description: 'Earn 3000 daily typing forms online. Mandatory refundable registration fee of 500 INR before training kit is dispatched.',
-        benefits: ['Instant payout'],
-        requiredSkills: ['typing'],
-        preferredSkills: [],
-        isWalkIn: false,
-        contactPhone: '9840000000',
-        status: JobStatus.SUBMITTED,
-        fraudAlerts: [
-          'Flagged: "registration fee" (recruitment fee violation)',
-          'Suspicious work-from-home salary claim',
-        ],
-        createdAt: new Date().toISOString(),
-      },
-    ];
+    job.moderationHistory = job.moderationHistory || [];
+    job.moderationHistory.push({
+      reviewerId,
+      action,
+      reason: reason || (action === 'APPROVE' ? 'Approved by moderator' : 'Moderation action taken'),
+      timestamp: new Date().toISOString(),
+    });
+
+    this.saveToDisk();
+    return job;
   }
 }

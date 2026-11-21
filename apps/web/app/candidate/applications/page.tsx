@@ -68,20 +68,9 @@ export default function CandidateApplicationsPage() {
 
   const loadData = async () => {
     try {
-      const apiApps = await fetchApplications();
-      if (Array.isArray(apiApps) && apiApps.length > 0) {
-        setApplications(apiApps);
-        return;
-      }
-      const stored = localStorage.getItem('mandya_applications');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setApplications(parsed);
-          return;
-        }
-      }
-      setApplications([]);
+      const user = JSON.parse(localStorage.getItem('mandya_user') || '{}');
+      const apiApps = await fetchApplications(user.id);
+      setApplications(Array.isArray(apiApps) ? apiApps : []);
     } catch {
       setApplications([]);
     }
@@ -91,50 +80,23 @@ export default function CandidateApplicationsPage() {
     loadData();
   }, []);
 
-  const loadDemoApps = () => {
-    setApplications(DEMO_APPLICATIONS_FIXTURE);
-    try {
-      localStorage.setItem('mandya_applications', JSON.stringify(DEMO_APPLICATIONS_FIXTURE));
-    } catch {}
-    setWithdrawnNotice('Loaded sample interview application for Priya R.');
-    setTimeout(() => setWithdrawnNotice(''), 3000);
-  };
-
   const handleWithdraw = async (id: string, jobTitle: string) => {
     try {
-      await withdrawApplication(id, 'cand_1').catch(() => {});
-    } catch {}
-
-    setApplications((prev) => {
-      const updated = prev.map((app) =>
-        app.id === id
-          ? {
-              ...app,
-              status: ApplicationStatus.WITHDRAWN,
-              statusHistory: [
-                ...app.statusHistory,
-                {
-                  status: ApplicationStatus.WITHDRAWN,
-                  note: 'Application withdrawn by candidate',
-                  changedAt: 'Just now',
-                },
-              ],
-            }
-          : app
+      const user = JSON.parse(localStorage.getItem('mandya_user') || '{}');
+      const app = applications.find((a) => a.id === id);
+      const candidateId = app?.candidateId || user.id || 'cand_1';
+      await withdrawApplication(id, candidateId);
+      await loadData();
+      setWithdrawnNotice(
+        lang === 'kn'
+          ? `ನೀವು "${jobTitle}" ಹುದ್ದೆಗೆ ಸಲ್ಲಿಸಿದ ಅರ್ಜಿಯನ್ನು ಹಿಂಪಡೆದಿದ್ದೀರಿ.`
+          : `You have successfully withdrawn your application for "${jobTitle}".`
       );
-      try {
-        localStorage.setItem('mandya_applications', JSON.stringify(updated));
-      } catch {
-        // fallback
-      }
-      return updated;
-    });
-    setWithdrawnNotice(
-      lang === 'kn'
-        ? `ನೀವು "${jobTitle}" ಹುದ್ದೆಗೆ ಸಲ್ಲಿಸಿದ ಅರ್ಜಿಯನ್ನು ಹಿಂಪಡೆದಿದ್ದೀರಿ.`
-        : `You have successfully withdrawn your application for "${jobTitle}".`
-    );
-    setTimeout(() => setWithdrawnNotice(''), 4000);
+      setTimeout(() => setWithdrawnNotice(''), 4000);
+    } catch (err: any) {
+      setWithdrawnNotice(err.message || 'Withdrawal failed');
+      setTimeout(() => setWithdrawnNotice(''), 4000);
+    }
   };
 
   return (
@@ -154,11 +116,10 @@ export default function CandidateApplicationsPage() {
           </div>
           <button
             type="button"
-            onClick={loadDemoApps}
-            className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition flex items-center gap-1.5 shadow-2xs"
+            onClick={loadData}
+            className="px-3 py-1.5 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-100 transition flex items-center gap-1.5 shadow-2xs"
           >
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            <span>Load Demo Application</span>
+            <span>Refresh</span>
           </button>
         </div>
 

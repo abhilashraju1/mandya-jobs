@@ -130,7 +130,7 @@ export function JobCard({
           >
             {currentLang === 'kn' ? 'ಕರೆ ಮಾಡಿ' : 'Call Employer'}
           </a>
-        ) : job.applicationRoute === 'WALK_IN' ? (
+        ) : (job.applicationRoute === 'WALK_IN' || job.isWalkIn) ? (
           <Link
             href={`/jobs/${job.id}`}
             className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-xs text-center transition shadow-xs"
